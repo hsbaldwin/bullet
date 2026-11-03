@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="고요 스냅">
+<meta name="theme-color" content="#0e191d">
+<title>고요 스냅</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-screen vertical snap deck; one card = one small act; the next card exists only after this one is done. */
+:root {
+  --ink: #0e191d;        /* night-pond background */
+  --ink-2: #15252b;      /* raised surface */
+  --line: #2a3f45;       /* hairlines, empty rings */
+  --mist: #dbe6e3;       /* main text */
+  --mist-dim: #8fa7a5;   /* secondary text */
+  --moss: #9fcfae;       /* calm accent: breath, focus, done */
+  --ember: #ebbb78;      /* warm accent: action, timer */
+  --f-display: "Gowun Batang", "AppleMyungjo", "Nanum Myeongjo", serif;
+  --f-body: "Gowun Dodum", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--ink); color: var(--mist);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.6;
+  -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; }
+.noselect, .stage, .hold, .pad { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* HUD */
+.hud {
+  position: fixed; inset: 0 0 auto; z-index: 5;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+  padding-bottom: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: linear-gradient(var(--ink) 55%, transparent);
+  pointer-events: none;
+}
+.hud > * { pointer-events: auto; }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: 15px; letter-spacing: .04em; }
+.pips { display: flex; gap: 6px; }
+.pip { width: 7px; height: 7px; border-radius: 50%; background: var(--line); transition: background .6s, transform .6s; }
+.pip.on { background: var(--moss); }
+.pip.now { background: var(--mist-dim); transform: scale(1.25); }
+.mute {
+  background: none; border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 10px; font-size: 12px; color: var(--mist-dim); cursor: pointer;
+}
+.mute:focus-visible, .btn:focus-visible, .chip:focus-visible, input:focus-visible { outline: 2px solid var(--moss); outline-offset: 3px; }
+
+/* Deck */
+#deck {
+  position: fixed; inset: 0; overflow-y: auto; overflow-x: hidden;
+  scroll-snap-type: y mandatory; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.card {
+  position: relative; height: 100%; min-height: 100%;
+  scroll-snap-align: start; scroll-snap-stop: always;
+  display: flex; flex-direction: column; justify-content: center;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 56px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: radial-gradient(120% 70% at 50% 62%, var(--glow, transparent), transparent 70%);
+}
+.card-in { width: 100%; max-width: 30rem; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.eyebrow { margin: 0; font-family: var(--f-num); font-size: 12px; letter-spacing: .12em; color: var(--mist-dim); text-transform: uppercase; }
+.title { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: clamp(26px, 7.4vw, 34px); line-height: 1.25; text-wrap: balance; }
+.lead { margin: 0; color: var(--mist-dim); max-width: 34ch; }
+.stage { position: relative; display: grid; place-items: center; min-height: 15rem; margin-block: 6px; }
+.status { margin: 0; min-height: 1.6em; text-align: center; color: var(--mist); }
+.status.good { color: var(--moss); }
+.next-hint {
+  position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  text-align: center; font-size: 13px; color: var(--moss); animation: bob 2.4s ease-in-out infinite;
+}
+@keyframes bob { 50% { transform: translateY(5px); opacity: .6; } }
+
+/* Shared controls */
+.btn {
+  appearance: none; border: 0; border-radius: 14px; padding: 15px 20px; cursor: pointer;
+  background: var(--mist); color: var(--ink); font-weight: 700; font-size: 16px; width: 100%;
+}
+.btn[disabled] { opacity: .35; cursor: default; }
+.btn.ghost { background: none; color: var(--mist-dim); border: 1px solid var(--line); font-weight: 400; }
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; min-width: 0; }
+.hold {
+  position: relative; overflow: hidden; border: 1px solid var(--ember); border-radius: 14px;
+  padding: 16px 20px; text-align: center; color: var(--ember); font-weight: 700; touch-action: none; cursor: pointer;
+}
+.hold i { position: absolute; inset: 0; background: var(--ember); transform-origin: left; transform: scaleX(var(--p, 0)); opacity: .22; }
+.hold span { position: relative; }
+
+/* Breath */
+.orb-wrap { width: min(62vw, 15rem); aspect-ratio: 1; max-width: 100%; position: relative; touch-action: none; display: grid; place-items: center; cursor: pointer; }
+.orb-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px dashed var(--line); }
+.orb {
+  width: 100%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--moss) 85%, white), var(--moss) 55%, color-mix(in srgb, var(--moss) 40%, var(--ink)));
+  transform: scale(calc(.38 + var(--s, 0) * .62)); opacity: calc(.55 + var(--s, 0) * .45);
+  box-shadow: 0 0 calc(var(--s, 0) * 60px) color-mix(in srgb, var(--moss) 45%, transparent);
+}
+.orb-label { position: absolute; font-family: var(--f-display); color: var(--ink); font-weight: 700; font-size: 17px; pointer-events: none; }
+.count { display: flex; justify-content: center; gap: 8px; }
+.count b { width: 26px; height: 4px; border-radius: 2px; background: var(--line); transition: background .5s; }
+.count b.on { background: var(--moss); }
+
+/* Rhythm */
+.pad { width: min(64vw, 15rem); aspect-ratio: 1; max-width: 100%; border-radius: 50%; position: relative; display: grid; place-items: center; touch-action: manipulation; cursor: pointer; }
+.pad .core { width: 34%; aspect-ratio: 1; border-radius: 50%; background: var(--ink-2); border: 1px solid var(--mist-dim); transition: transform .12s; }
+.pad.hit .core { transform: scale(.9); background: var(--moss); border-color: var(--moss); }
+.pad .wave { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--moss); }
+
+/* Focus dot */
+.field { width: 100%; height: 17rem; border-radius: 20px; background: var(--ink-2); position: relative; touch-action: none; overflow: hidden; }
+.dot { position: absolute; left: 0; top: 0; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%;
+  background: conic-gradient(var(--moss) calc(var(--p, 0) * 360deg), var(--line) 0); display: grid; place-items: center; }
+.dot::after { content: ""; width: 44px; height: 44px; border-radius: 50%; background: var(--ink-2); box-shadow: inset 0 0 0 9px var(--mist); }
+.dot.on::after { box-shadow: inset 0 0 0 9px var(--moss); }
+
+/* Stillness */
+.still { width: min(62vw, 15rem); aspect-ratio: 1; max-width: 100%; position: relative; display: grid; place-items: center; }
+.still svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.still .num { font-family: var(--f-num); font-size: 44px; font-variant-numeric: tabular-nums; }
+.still .num small { font-size: 15px; color: var(--mist-dim); margin-left: 2px; }
+
+/* Action */
+.task-card { border: 1px solid var(--line); border-radius: 18px; padding: 22px 20px; background: var(--ink-2); display: flex; flex-direction: column; gap: 6px; }
+.task-card .what { font-family: var(--f-display); font-size: 23px; font-weight: 700; line-height: 1.35; text-wrap: balance; }
+.task-card .why { color: var(--mist-dim); font-size: 14px; }
+.stack { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+input[type=text] {
+  width: 100%; font: inherit; font-size: 17px; padding: 15px 16px; border-radius: 14px;
+  border: 1px solid var(--line); background: var(--ink-2); color: var(--mist);
+}
+input::placeholder { color: var(--mist-dim); opacity: .7; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: none; color: var(--mist-dim); border-radius: 999px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
+.tip { margin: 0; font-size: 14px; color: var(--mist-dim); }
+.tip b { color: var(--mist); font-weight: 400; }
+
+/* Timer */
+.clock { font-family: var(--f-num); font-weight: 500; font-size: clamp(64px, 22vw, 96px); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--ember); line-height: 1; }
+.clock-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.bar { width: 100%; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ember); width: calc(var(--p, 0) * 100%); }
+
+/* Finish */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat { border-top: 1px solid var(--line); padding-top: 10px; }
+.stat b { display: block; font-family: var(--f-num); font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--mist-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .next-hint { animation: none; }
+  .pip, .count b { transition: none; }
+}
+</style>
+
+<header class="hud">
+  <div class="brand">고요 스냅</div>
+  <div class="pips" id="pips" aria-label="진행"></div>
+  <button class="mute" id="mute" type="button" aria-pressed="false">소리 켬</button>
+</header>
+<main id="deck" aria-live="off"></main>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const deck = $('#deck');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- storage (optional) ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('goyo.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('goyo.' + k, JSON.stringify(v)); } catch {} }
+};
+
+/* ---------- sound ---------- */
+let ac = null, muted = store.get('muted', false);
+const muteBtn = $('#mute');
+const paintMute = () => { muteBtn.textContent = muted ? '소리 끔' : '소리 켬'; muteBtn.setAttribute('aria-pressed', String(muted)); };
+paintMute();
+muteBtn.addEventListener('click', () => { muted = !muted; store.set('muted', muted); paintMute(); });
+function audio() {
+  if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch { ac = null; } }
+  if (ac && ac.state === 'suspended') ac.resume();
+  return ac;
+}
+addEventListener('pointerdown', audio, { passive: true });
+function tone(freq, dur = 1.2, vol = .08, when = 0) {
+  if (muted) return; const a = audio(); if (!a) return;
+  const t = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
+  o.type = 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + .05);
+}
+const chime = () => { tone(523.25, 1.6, .07); tone(783.99, 1.8, .05, .12); };
+const tick = () => tone(659.25, .25, .05);
+const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
+
+/* ---------- day streak ---------- */
+const dayKey = (d = new Date()) => d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+function recordRound() {
+  const today = dayKey(), y = new Date(); y.setDate(y.getDate() - 1);
+  let streak = store.get('streak', 0), last = store.get('lastDay', null);
+  if (last !== today) streak = last === dayKey(y) ? streak + 1 : 1;
+  store.set('streak', streak); store.set('lastDay', today);
+  const rounds = store.get('rounds', 0) + 1; store.set('rounds', rounds);
+  return { streak, rounds };
+}
+
+/* ---------- content ---------- */
+const TINY = [
+  ['물 한 컵 마시기', '뇌는 탈수에 가장 먼저 흐려져요.'],
+  ['일어나서 기지개 10초', '몸이 움직이면 생각도 따라 움직여요.'],
+  ['책상 위 물건 3개 제자리에', '눈에 보이는 잡음을 줄이면 집중이 쉬워져요.'],
+  ['창밖을 보며 먼 곳 하나 찾기', '먼 초점은 눈과 머리를 쉬게 해요.'],
+  ['휴대폰 알림 하나 끄기', '방해 하나가 줄면 시작이 하나 쉬워져요.'],
+  ['찬물로 손 씻기', '차가운 감각이 머리를 깨워요.'],
+  ['어깨를 귀까지 올렸다가 툭 내리기 3번', '긴장이 풀리면 미루는 마음도 느슨해져요.'],
+  ['바닥에 있는 것 하나 줍기', '아주 작은 완료가 다음 완료를 불러요.']
+];
+const IDEAS = ['문서 열고 제목만 쓰기', '메일 하나 답장', '설거지 5개', '책 2쪽', '운동복 갈아입기', '빨래 개기'];
+
+/* ---------- deck flow ---------- */
+const FLOW = [breath, rhythm, focusDot, stillness, tiny, pickTask, startTimer, finish];
+let round = null;
+function newRound() {
+  if (round) round.cleanups.forEach(f => f());
+  round = { i: 0, t0: Date.now(), task: '', cleanups: [] };
+  deck.innerHTML = '';
+  $('#pips').innerHTML = FLOW.map(() => '<span class="pip"></span>').join('');
+  mountNext();
+  deck.scrollTop = 0;
+}
+function paintPips() {
+  [...$('#pips').children].forEach((p, k) => { p.className = 'pip' + (k < round.i ? ' on' : k === round.i ? ' now' : ''); });
+}
+function card(n, eyebrow, title, lead, glow) {
+  const el = document.createElement('section');
+  el.className = 'card';
+  el.style.setProperty('--glow', glow);
+  el.innerHTML = `<div class="card-in">
+      <p class="eyebrow">${String(n).padStart(2, '0')} / ${String(FLOW.length).padStart(2, '0')} · ${eyebrow}</p>
+      <h2 class="title">${title}</h2>
+      ${lead ? `<p class="lead">${lead}</p>` : ''}
+      <div class="stage"></div>
+      <p class="status" aria-live="polite"></p>
+    </div>`;
+  deck.appendChild(el);
+  return { el, stage: $('.stage', el), status: $('.status', el) };
+}
+function mountNext() {
+  paintPips();
+  const fn = FLOW[round.i];
+  const myRound = round;
+  let finished = false;
+  const done = (msg) => {
+    if (finished || myRound !== round) return; finished = true;
+    chime(); buzz(30);
+    if (msg) { c.status.textContent = msg; c.status.classList.add('good'); }
+    round.i++;
+    if (round.i < FLOW.length) {
+      const hint = document.createElement('div');
+      hint.className = 'next-hint'; hint.textContent = '다음 칸이 열렸어요 ↓';
+      c.el.appendChild(hint);
+      mountNext();
+      const target = deck.lastElementChild;
+      setTimeout(() => { if (myRound === round) deck.scrollTo({ top: target.offsetTop, behavior: reduce ? 'auto' : 'smooth' }); }, 1100);
+    } else paintPips();
+  };
+  const c = fn(round.i + 1, done);
+}
+// run a frame loop only while the card is on screen
+function loop(el, step) {
+  let raf = 0, last = 0, visible = false;
+  const frame = (t) => { const dt = Math.min(.05, (t - (last || t)) / 1000); last = t; if (step(dt, t) === false) return; raf = requestAnimationFrame(frame); };
+  const io = new IntersectionObserver(([e]) => {
+    visible = e.intersectionRatio > .6;
+    cancelAnimationFrame(raf); last = 0;
+    if (visible) raf = requestAnimationFrame(frame);
+  }, { root: deck, threshold: [0, .6, 1] });
+  io.observe(el);
+  return () => { io.disconnect(); cancelAnimationFrame(raf); };
+}
+
+/* 1. breath: hold to inhale, release to exhale */
+function breath(n, done) {
+  const c = card(n, '착지', '숨 세 번만 같이 쉬어요', '원을 누르고 있는 동안 들이쉬고, 원이 다 차면 손을 떼고 천천히 내쉬세요.', 'color-mix(in srgb, var(--moss) 14%, transparent)');
+  c.stage.innerHTML = `<div class="stack" style="align-items:center;gap:22px">
+      <div class="orb-wrap" role="button" aria-label="누르고 있는 동안 들이쉬기"><div class="orb-ring"></div><div class="orb"></div><span class="orb-label">누르기</span></div>
+      <div class="count"><b></b><b></b><b></b></div></div>`;
+  const wrap = $('.orb-wrap', c.el), orb = $('.orb', c.el), label = $('.orb-label', c.el), bars = c.el.querySelectorAll('.count b');
+  const NEED = 3, IN = 4, OUT = 5.5;
+  let s = 0, holding = false, full = false, cycles = 0, over = false;
+  const down = (e) => { e.preventDefault(); holding = true; if (!full) c.status.textContent = '들이쉬고…'; };
+  const up = () => { if (!holding) return; holding = false;
+    if (full) c.status.textContent = '천천히 내쉬고…';
+    else if (s > .05) c.status.textContent = '조금만 더 길게 들이쉬어 봐요';
+  };
+  wrap.addEventListener('pointerdown', down); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  loop(c.el, (dt) => {
+    if (holding && !full) { s = Math.min(1, s + dt / IN); if (s >= 1) { full = true; tone(392, 1.4, .05); c.status.textContent = '이제 손을 떼고 내쉬어요'; } }
+    else if (!holding) {
+      s = Math.max(0, s - dt / (full ? OUT : 1.2));
+      if (s === 0 && full) { full = false; cycles++; bars.forEach((b, k) => b.classList.toggle('on', k < cycles));
+        if (cycles >= NEED && !over) { over = true; label.textContent = '좋아요'; done('몸이 조금 가라앉았어요.'); }
+        else if (!over) c.status.textContent = `${cycles}번. 다시 누르고 들이쉬기`; }
+    }
+    orb.style.setProperty('--s', s.toFixed(3));
+    label.textContent = over ? '좋아요' : holding ? (full ? '떼기' : '들이쉬기') : (full ? '내쉬기' : '누르기');
+  });
+  return c;
+}
+
+/* 2. rhythm: tap with the slow pulse */
+function rhythm(n, done) {
+  const c = card(n, '리듬', '물결에 맞춰 톡', '바깥 원이 가운데로 모일 때 탭하세요. 서두르지 않아도 돼요.', 'color-mix(in srgb, var(--moss) 10%, transparent)');
+  c.stage.innerHTML = `<div class="stack" style="align-items:center;gap:22px">
+      <div class="pad" role="button" aria-label="박자에 맞춰 탭"><div class="wave"></div><div class="core"></div></div>
+      <div class="count">${'<b></b>'.repeat(8)}</div></div>`;
+  const pad = $('.pad', c.el), wave = $('.wave', c.el), bars = c.el.querySelectorAll('.count b');
+  const P = 1500, WIN = 230, NEED = 8;
+  let t0 = performance.now(), hits = 0, lastBeat = -1, over = false;
+  pad.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); if (over) return;
+    const now = performance.now(), k = Math.round((now - t0) / P), off = now - (t0 + k * P);
+    if (Math.abs(off) <= WIN && k !== lastBeat) {
+      lastBeat = k; hits++; tick();
+      pad.classList.add('hit'); setTimeout(() => pad.classList.remove('hit'), 160);
+      bars.forEach((b, j) => b.classList.toggle('on', j < hits));
+      c.status.textContent = hits < NEED ? `${hits} / ${NEED}` : '';
+      if (hits >= NEED) { over = true; done('마음의 박자가 맞춰졌어요.'); }
+    } else c.status.textContent = off < 0 ? '조금만 기다렸다가' : '원이 모일 때 다시';
+  });
+  loop(c.el, () => {
+    const ph = (((performance.now() - t0) % P) + P) % P / P; // 0 → 1, beat at 0
+    const k = 1 - ph; // ring shrinks toward the core
+    wave.style.transform = `scale(${(.34 + .66 * k).toFixed(3)})`;
+    wave.style.opacity = (over ? .15 : .25 + .75 * ph).toFixed(2);
+  });
+  return c;
+}
+
+/* 3. focus dot: keep a finger on a slowly drifting dot */
+function focusDot(n, done) {
+  const c = card(n, '집중', '점을 따라가요', '손가락을 점 위에 올리고, 천천히 움직이는 점을 놓치지 말고 따라가세요.', 'color-mix(in srgb, var(--mist) 6%, transparent)');
+  c.stage.innerHTML = `<div class="field" aria-label="움직이는 점을 따라 손가락 올리기"><div class="dot"></div></div>`;
+  const field = $('.field', c.el), dot = $('.dot', c.el);
+  const NEED = 9;
+  let fx = null, fy = null, prog = 0, t = 0, over = false, msgAt = 0;
+  const pos = (e) => { const r = field.getBoundingClientRect(); fx = e.clientX - r.left; fy = e.clientY - r.top; };
+  field.addEventListener('pointerdown', (e) => { e.preventDefault(); field.setPointerCapture?.(e.pointerId); pos(e); });
+  field.addEventListener('pointermove', (e) => { if (fx !== null) pos(e); });
+  const lift = () => { fx = fy = null; };
+  field.addEventListener('pointerup', lift); field.addEventListener('pointercancel', lift);
+  loop(c.el, (dt) => {
+    const w = field.clientWidth, h = field.clientHeight, m = 44;
+    if (!over) t += dt * (0.32 + prog / NEED * 0.25); // gets a little livelier as you settle in
+    const x = m + (w - 2 * m) * (.5 + .5 * Math.sin(t * 1.0)), y = m + (h - 2 * m) * (.5 + .5 * Math.sin(t * 1.37 + 1.2));
+    dot.style.transform = `translate(${x}px, ${y}px)`;
+    const on = fx !== null && Math.hypot(fx - x, fy - y) < 46;
+    if (!over) {
+      prog = on ? Math.min(NEED, prog + dt) : Math.max(0, prog - dt * .35);
+      if (on) c.status.textContent = `${Math.ceil(NEED - prog)}초만 더`;
+      else if (fx !== null && performance.now() - msgAt > 900) { msgAt = performance.now(); c.status.textContent = '점 위로 살며시'; }
+      if (prog >= NEED) { over = true; done('흩어졌던 주의가 한 점에 모였어요.'); }
+    }
+    dot.classList.toggle('on', on || over);
+    dot.style.setProperty('--p', (prog / NEED).toFixed(3));
+  });
+  return c;
+}
+
+/* 4. stillness: don't touch anything for 12 seconds */
+function stillness(n, done) {
+  const c = card(n, '가만히', '아무것도 하지 않기', '화면에서 손을 떼고 12초만 기다려요. 숫자가 아니라 숨소리에 귀를 기울여요.', 'color-mix(in srgb, var(--moss) 8%, transparent)');
+  const R = 46, L = 2 * Math.PI * R;
+  c.stage.innerHTML = `<div class="still">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="${R}" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+      <circle class="arc" cx="50" cy="50" r="${R}" fill="none" stroke="var(--moss)" stroke-width="2" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L}"/></svg>
+      <div class="num"><span>12</span><small>초</small></div></div>`;
+  const arc = $('.arc', c.el), num = $('.num span', c.el);
+  const NEED = 12;
+  let el = 0, over = false, started = false;
+  const reset = () => { if (over || !started) return; if (el > .4) c.status.textContent = '괜찮아요. 처음부터 천천히.'; el = 0; };
+  addEventListener('pointerdown', reset, { passive: true });
+  deck.addEventListener('scroll', () => { if (started && !over && Math.abs(deck.scrollTop - c.el.offsetTop) > 40) el = 0; }, { passive: true });
+  loop(c.el, (dt) => {
+    if (!started) { started = true; c.status.textContent = '손을 내려놓아요'; }
+    if (!over) { el += dt; if (el >= NEED) { el = NEED; over = true; done('12초 동안 아무것도 안 했어요. 그것도 연습이에요.'); } }
+    arc.setAttribute('stroke-dashoffset', (L * (1 - el / NEED)).toFixed(1));
+    num.textContent = Math.max(0, Math.ceil(NEED - el));
+  });
+  return c;
+}
+
+/* 5. tiny action: a two-minute-rule warm-up */
+function tiny(n, done) {
+  const c = card(n, '작은 행동', '몸부터 먼저', '아주 작은 걸 하나 해치우면 시동이 걸려요. 하고 돌아와서 버튼을 꾹 눌러요.', 'color-mix(in srgb, var(--ember) 9%, transparent)');
+  let idx = Math.floor(Math.random() * TINY.length), rerolls = 2;
+  c.stage.innerHTML = `<div class="stack">
+      <div class="task-card"><div class="what"></div><div class="why"></div></div>
+      <div class="hold" role="button" tabindex="0"><i></i><span>했어요 · 꾹 누르기</span></div>
+      <button class="btn ghost" type="button">다른 걸로 (2번 남음)</button></div>`;
+  const what = $('.what', c.el), why = $('.why', c.el), reroll = $('.btn.ghost', c.el);
+  const paint = () => { what.textContent = TINY[idx][0]; why.textContent = TINY[idx][1]; };
+  paint();
+  reroll.addEventListener('click', () => {
+    if (rerolls <= 0) return; rerolls--; idx = (idx + 1 + Math.floor(Math.random() * (TINY.length - 1))) % TINY.length; paint();
+    reroll.textContent = rerolls ? `다른 걸로 (${rerolls}번 남음)` : '이걸로 해봐요';
+    reroll.disabled = rerolls === 0;
+  });
+  holdButton($('.hold', c.el), 1.2, () => { reroll.disabled = true; done('시동 걸렸어요. 이 기세로 다음 칸.'); });
+  return c;
+}
+function holdButton(el, secs, onDone) {
+  let p = 0, holding = false, raf = 0, last = 0, fin = false;
+  const step = (t) => {
+    const dt = Math.min(.05, (t - (last || t)) / 1000); last = t;
+    p = holding ? Math.min(1, p + dt / secs) : Math.max(0, p - dt * 2);
+    el.style.setProperty('--p', p.toFixed(3));
+    if (p >= 1 && !fin) { fin = true; holding = false; $('span', el).textContent = '완료'; onDone(); return; }
+    if (p > 0 || holding) raf = requestAnimationFrame(step); else last = 0;
+  };
+  const start = (e) => { if (fin) return; e.preventDefault(); holding = true; cancelAnimationFrame(raf); last = 0; raf = requestAnimationFrame(step); };
+  const stop = () => { holding = false; };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointerup', stop); el.addEventListener('pointerleave', stop); el.addEventListener('pointercancel', stop);
+  el.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) start(e); });
+  el.addEventListener('keyup', stop);
+}
+
+/* 6. pick one task, written as its first physical step */
+function pickTask(n, done) {
+  const c = card(n, '한 가지', '미루던 것 딱 하나', '오늘 미루고 있는 일을 하나만 적어요. 크게 말고, 손이 바로 움직일 첫 동작으로.', 'color-mix(in srgb, var(--ember) 11%, transparent)');
+  const prev = store.get('lastTask', '');
+  c.stage.innerHTML = `<form class="stack" novalidate>
+      <label for="task-input" class="tip"><b>보고서 쓰기</b> 대신 <b>문서 열고 제목만 쓰기</b>처럼</label>
+      <input id="task-input" type="text" maxlength="40" autocomplete="off" enterkeyhint="done" placeholder="예: 문서 열고 제목만 쓰기" value="">
+      <div class="chips">${(prev && !IDEAS.includes(prev) ? [prev, ...IDEAS] : IDEAS).map(t => `<button type="button" class="chip">${t.replace(/</g, '&lt;')}</button>`).join('')}</div>
+      <button class="btn" type="submit" disabled>이걸로 정하기</button></form>`;
+  const form = $('form', c.el), input = $('#task-input', c.el), go = $('.btn', c.el);
+  const sync = () => { go.disabled = !input.value.trim(); };
+  input.addEventListener('input', sync);
+  c.el.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => { input.value = ch.textContent; sync(); }));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault(); const v = input.value.trim(); if (!v || round.task) return;
+    round.task = v; store.set('lastTask', v); input.blur(); input.readOnly = true; go.disabled = true; go.textContent = '정했어요';
+    done('좋아요. 이제 딱 2분만.');
+  });
+  return c;
+}
+
+/* 7. two-minute start timer */
+function startTimer(n, done) {
+  const SECS = 120;
+  const c = card(n, '시작', '2분만 해요', '', 'color-mix(in srgb, var(--ember) 13%, transparent)');
+  const lead = document.createElement('p'); lead.className = 'lead';
+  lead.textContent = `「${round.task}」. 2분 뒤에 그만둬도 돼요. 시작하는 것까지가 오늘의 미션이에요.`;
+  $('.title', c.el).after(lead);
+  c.stage.innerHTML = `<div class="stack"><div class="clock-wrap"><div class="clock">2:00</div><div class="bar"><i></i></div></div>
+      <button class="btn" type="button">시작</button>
+      <button class="btn ghost" type="button" hidden>벌써 몰입했어요 · 끝내기</button></div>`;
+  const clock = $('.clock', c.el), bar = $('.bar', c.el), go = $('.btn:not(.ghost)', c.el), early = $('.btn.ghost', c.el);
+  let tStart = 0, timer = 0, lock = null, over = false;
+  const fmt = (s) => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+  const finishUp = (msg) => {
+    if (over) return; over = true; clearInterval(timer); try { lock && lock.release(); } catch {}
+    go.hidden = true; early.hidden = true; done(msg);
+  };
+  go.addEventListener('click', () => {
+    tStart = Date.now(); go.disabled = true; go.textContent = '하는 중… 화면은 그대로 두세요';
+    try { navigator.wakeLock?.request('screen').then(l => lock = l, () => {}); } catch {}
+    timer = setInterval(() => {
+      const el = (Date.now() - tStart) / 1000, left = Math.max(0, SECS - el);
+      clock.textContent = fmt(Math.ceil(left)); bar.style.setProperty('--p', (el / SECS).toFixed(3));
+      if (el >= 30) early.hidden = false;
+      if (left <= 0) finishUp('2분 해냈어요. 계속하고 싶으면 그대로 이어가요.');
+    }, 250);
+  });
+  early.addEventListener('click', () => finishUp('시작이 제일 어려운 부분이었어요. 해냈어요.'));
+  round.cleanups.push(() => clearInterval(timer));
+  return c;
+}
+
+/* 8. finish */
+function finish(n, done) {
+  const { streak, rounds } = recordRound();
+  const secs = Math.round((Date.now() - round.t0) / 1000);
+  const c = card(n, '끝', '오늘 한 판 끝', '', 'color-mix(in srgb, var(--moss) 12%, transparent)');
+  const lead = document.createElement('p'); lead.className = 'lead';
+  lead.textContent = `「${round.task}」을 시작했어요. 다시 흐트러지면 언제든 한 판 더 돌리면 돼요.`;
+  $('.title', c.el).after(lead);
+  c.stage.style.minHeight = 'auto';
+  c.stage.innerHTML = `<div class="stack" style="gap:22px">
+      <div class="stats">
+        <div class="stat"><b>${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}</b><span>이번 판</span></div>
+        <div class="stat"><b>${streak}</b><span>연속 일수</span></div>
+        <div class="stat"><b>${rounds}</b><span>누적 판</span></div>
+      </div>
+      <button class="btn" type="button">한 판 더</button>
+      <p class="tip">iPhone Safari에서 공유 버튼 → <b>홈 화면에 추가</b>를 누르면 앱처럼 바로 열려요.</p></div>`;
+  $('.btn', c.el).addEventListener('click', newRound);
+  round.i = FLOW.length; paintPips();
+  setTimeout(chime, 300);
+  return c;
+}
+
+newRound();
+})();
+</script>
+
+</html>
