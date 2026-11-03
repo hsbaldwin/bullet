@@ -22,6 +22,7 @@
   #ammo span.used { background: rgba(255,255,255,.18); }
   #angle { left: 12px; bottom: 12px; font-size: 20px; font-weight: 700; }
   #angle small { display: block; font-size: 11px; font-weight: 400; opacity: .75; }
+  #angle em { display: block; font-style: normal; font-size: 12px; font-weight: 600; margin-top: 2px; max-width: min(78vw, 420px); }
   #mute { position: absolute; right: 12px; bottom: 12px; pointer-events: auto; background: var(--panel); color: #fff;
     border: 0; border-radius: 10px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
   #banner { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center;
@@ -116,9 +117,9 @@ function makeStage(n) {
   const baseY = Math.max(bottom + R, amp + R + 0.4);
   S.target = { x: dist, baseY, y: baseY, R, amp, freq: rand(0.5, 0.95), phase: rand(0, Math.PI * 2) };
   S.wind = n >= 2 ? (Math.random() < 0.5 ? -1 : 1) * rand(0.35, 1) * Math.min(11, 1 + n * 1.1) : 0;
-  S.previewLen = Math.max(7, 32 - n * 2.2);
+  S.previewLen = Math.max(22, 60 - n * 3);
   S.ammo = S.maxAmmo; S.shots = 0;
-  S.ghosts = []; S.marks = []; S.trail = []; S.rings = []; S.bullet = null;
+  S.ghosts = []; S.marks = []; S.hint = ''; S.trail = []; S.rings = []; S.bullet = null;
 
   S.trees = [];
   for (let x = 14; x < dist - 8; x += rand(9, 26)) {
@@ -184,6 +185,31 @@ function integrate(b, dt) {
   b.vy -= G * dt;
   b.x += b.vx * dt;
   b.y += b.vy * dt;
+}
+
+// 현재 각도로 쐈을 때 표적 평면(x = T.x)을 지나는 높이와 시간을 계산
+function predict(angleDeg) {
+  const T = S.target, tip = muzzleTip(angleDeg);
+  const b = { x: tip.x, y: tip.y, vx: V0 * Math.cos(tip.a), vy: V0 * Math.sin(tip.a) };
+  let t = 0;
+  while (t < 14) {
+    const px = b.x, py = b.y;
+    integrate(b, PHYS_DT); t += PHYS_DT;
+    if (b.x >= T.x) { const f = (T.x - px) / (b.x - px); return { reach: true, y: py + (b.y - py) * f, t }; }
+    if (b.y < 0) return { reach: false, x: b.x, t };
+  }
+  return { reach: false, x: b.x, t };
+}
+
+// 표적 중심(움직이는 표적은 레일 중앙)에 맞는 낮은 탄도 각도
+function solveAngle() {
+  const goal = S.target.baseY;
+  let lo = -10, hi = 45;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2, p = predict(mid);
+    if (p.reach && p.y > goal) hi = mid; else lo = mid;
+  }
+  return (lo + hi) / 2;
 }
 
 function fire() {
@@ -290,6 +316,10 @@ function onMiss(kind) {
     msg = '빗나감';
   }
   popup(b.x, b.y + 1.2, '빗나감', '#ff8a8a', 1.1);
+  const need = solveAngle() - S.angle;
+  const hint = Math.abs(need) < 0.05 ? '각도는 거의 맞아요. 표적 움직임에 맞춰 타이밍을 조절해 보세요'
+    : `힌트: 각도를 약 ${Math.abs(need).toFixed(1)}° ${need > 0 ? '올려' : '내려'} 보세요`;
+  S.hint = hint;
   S.result = { hit: false, msg };
   setState('result');
 }
@@ -433,6 +463,9 @@ function update(rdt) {
   const dt = rdt * S.ts;
 
   if (T) { S.time += dt; T.y = targetY(); }
+  if (T && (S.state === 'aim' || S.state === 'intro') && (!S.pred || S.pred.angle !== S.angle || S.pred.stage !== S.stage)) {
+    S.pred = Object.assign(predict(S.angle), { angle: S.angle, stage: S.stage });
+  }
 
   if (S.state === 'flight') {
     S.physAcc += dt;
@@ -827,7 +860,7 @@ function drawPip() {
   const show = S.state === 'aim' || (S.state === 'flight' && S.bullet.x < T.x - 30) ||
     (S.state === 'result' && !S.result.hit);
   if (!show) return;
-  const w = Math.round(clamp(W * 0.3, 140, 260)), h = Math.round(w * 0.72);
+  const w = Math.round(clamp(W * 0.32, 150, 300)), h = Math.round(w * 0.72);
   const ox = W - w - 12, oy = 12;
   const pz = h / (T.R * 2 + Math.max(4, T.amp * 2 + 2));
   ctx.save();
@@ -848,6 +881,30 @@ function drawPip() {
   const vg = ctx.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, w * 0.7);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+  // 예상 탄착 표시
+  const P = S.pred;
+  if (S.state === 'aim' && P) {
+    if (P.reach) {
+      const my = sy(P.y), cx = w / 2;
+      const inside = Math.abs(P.y - T.y) <= T.R;
+      const col = inside ? '#5dff9d' : '#4fe3ff';
+      if (my < 10 || my > h - 22) {
+        const up = my < 10, ay = up ? 10 : h - 26;
+        ctx.fillStyle = col; ctx.beginPath();
+        ctx.moveTo(cx, up ? ay - 6 : ay + 6); ctx.lineTo(cx - 7, up ? ay + 4 : ay - 4); ctx.lineTo(cx + 7, up ? ay + 4 : ay - 4); ctx.fill();
+        ctx.font = '700 11px system-ui, sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText(`예상 탄착 ${Math.abs(P.y - T.y).toFixed(1)}m ${up ? '위' : '아래'}`, cx + 10, ay + 4);
+      } else {
+        ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, my, 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx - 16, my); ctx.lineTo(cx - 9, my); ctx.moveTo(cx + 9, my); ctx.lineTo(cx + 16, my); ctx.stroke();
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, my, 2, 0, Math.PI * 2); ctx.fill();
+      }
+    } else {
+      ctx.fillStyle = '#ff8a8a'; ctx.font = '700 12px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(`표적 ${(T.x - P.x).toFixed(0)}m 앞 지면에 떨어짐 ▲`, w / 2, h - 26);
+    }
+  }
   V = saved;
   ctx.restore();
   ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5;
@@ -900,9 +957,19 @@ function updateHud() {
     `<div class="row"><span>거리</span><span>${T.x.toFixed(1)} m</span></div>` +
     `<div class="row"><span>표적 높이</span><span>${T.amp > 0 ? `${T.baseY.toFixed(1)}±${T.amp.toFixed(1)}` : T.y.toFixed(1)} m</span></div>` +
     `<div class="row"><span>바람</span><span>${windStr}</span></div>` +
-    (S.state === 'result' && !S.result.hit ? `<div class="sep"></div><div style="color:#ffb3b3">${S.result.msg}</div>` : '');
+    (S.state === 'result' && !S.result.hit ? `<div class="sep"></div><div style="color:#ffb3b3">${S.result.msg}</div><div style="color:#ffd27a">${S.hint || ''}</div>` : '');
   if (html !== lastInfo) { infoEl.innerHTML = html; lastInfo = html; }
-  const ah = `${S.angle.toFixed(1)}°<small>${matchMedia('(pointer:coarse)').matches ? '드래그로 조준 · 손을 떼면 발사' : '마우스 조준 · 클릭 발사 · ↑↓ 미세조정'}</small>`;
+  let pl = '';
+  const P = S.pred;
+  if (S.state === 'aim' && P) {
+    if (P.reach) {
+      const d = P.y - T.y, on = Math.abs(d) <= T.R;
+      pl = `<em style="color:${on ? '#5dff9d' : '#9fe9ff'}">예상 탄착: ${on ? '표적 안 · ' : ''}중심보다 ${Math.abs(d).toFixed(1)}m ${d >= 0 ? '위' : '아래'} · ${P.t.toFixed(1)}초 후 도달</em>`;
+      if (T.amp > 0) pl += `<em>표적이 움직여요. 도달 시간 동안의 이동을 고려하세요</em>`;
+    } else pl = `<em style="color:#ff9b9b">예상 탄착: 표적 ${(T.x - P.x).toFixed(0)}m 앞 지면. 각도를 올리세요</em>`;
+  }
+  if (S.hint && S.state === 'aim') pl += `<em style="color:#ffd27a">${S.hint}</em>`;
+  const ah = `${S.angle.toFixed(1)}°${pl}<small>${matchMedia('(pointer:coarse)').matches ? '드래그로 조준 · 손을 떼면 발사' : '마우스 조준 · 클릭 발사 · ↑↓ 미세조정'}</small>`;
   if (ah !== lastAngle) { angleEl.innerHTML = ah; lastAngle = ah; }
 }
 
