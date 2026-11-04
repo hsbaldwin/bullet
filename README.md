@@ -48,6 +48,7 @@
 - 서버가 없으면 같은 규칙으로 이 기기에만 저장됩니다.
 
 > **업데이트 시 주의:** 성장 자산용 서버 함수가 추가되었습니다. Supabase **SQL Editor**에서 [`supabase/setup.sql`](supabase/setup.sql)을 다시 실행하세요. 기존 랭킹 기록은 유지됩니다.
+> 서버 SQL이 옛 버전이면 게임 첫 화면에 **"⚠️ 서버 SQL 업데이트 필요"** 경고가 뜹니다(`bullet_schema_version()`과 `index.html`의 `SCHEMA_VERSION` 비교).
 
 ## ⚡ 성능 부하를 줄이는 방법
 

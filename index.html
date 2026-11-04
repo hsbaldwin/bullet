@@ -198,6 +198,7 @@ const I18N = {
       '스테이지마다 탄 3발. 명중하면 다음 스테이지',
     ],
     start: '사격 시작', classic: '2D 클래식 버전', langToggle: 'English',
+    schemaWarn: '⚠️ 서버 SQL 업데이트 필요: Supabase SQL Editor에서 supabase/setup.sql을 다시 실행하세요',
     armory: '🎖 병기고', brassName: '탄피', lvName: l => `계급 ${l}`, lvShort: (l, b) => `🎖 계급 ${l} · 🔶 탄피 ${b}`,
     xpBar: (c, n) => `다음 계급까지 ${c} / ${n} XP`,
     stats: (r, h, b, st) => `통산 ${r}판 · 명중 ${h} · 불스아이 ${b} · 최고 스테이지 ${st}`,
@@ -283,6 +284,7 @@ const I18N = {
       '3 rounds per stage. Hit to advance',
     ],
     start: 'Start', classic: '2D classic version', langToggle: '한국어',
+    schemaWarn: '⚠️ Server update needed: re-run supabase/setup.sql in the Supabase SQL Editor',
     armory: '🎖 Armory', brassName: 'brass', lvName: l => `Rank ${l}`, lvShort: (l, b) => `🎖 Rank ${l} · 🔶 ${b} brass`,
     xpBar: (c, n) => `Next rank: ${c} / ${n} XP`,
     stats: (r, h, b, st) => `${r} runs · ${h} hits · ${b} bullseyes · best stage ${st}`,
@@ -854,6 +856,15 @@ function loadLocalProgress(key) {
   try { const v = JSON.parse(store.get(key) || 'null'); if (v) Object.assign(PG, v, { eq: Object.assign({ ...DEFAULT_EQ }, v.eq || {}) }); } catch (e) {}
 }
 const saveLocalProgress = () => store.set('bullet.progress', JSON.stringify(PG));
+// 서버 SQL 버전 확인: supabase/setup.sql의 bullet_schema_version()과 같아야 합니다.
+const SCHEMA_VERSION = 3;
+let schemaOld = false;
+async function checkSchema() {
+  if (!LB.on) return;
+  try { schemaOld = Number(await LB.rpc('bullet_schema_version', {})) < SCHEMA_VERSION; }
+  catch (e) { schemaOld = /could not find the function|schema cache|does not exist/i.test(String(e && e.message)); }
+  const el = card.querySelector('#schemaWarn'); if (el) el.hidden = !schemaOld;
+}
 async function loadProgress() {
   if (LB.on) {
     try { applyServerProgress((await LB.rpc('get_progress', { p_token: playerToken() }))[0]); }
@@ -1082,6 +1093,7 @@ function showTitle() {
     <p class="sub">${L().sub}</p>
     <ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
     ${best ? `<p class="sub">${L().myBest(best.toLocaleString())}</p>` : ''}
+    <p class="status err" id="schemaWarn" ${schemaOld ? '' : 'hidden'}>${L().schemaWarn}</p>
     <p class="lvline" id="lvline">${L().lvShort(levelInfo(PG.xp).lv, PG.brass.toLocaleString())}</p>
     <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button><button class="ghost" id="armory">${L().armory}</button></div>
     <div class="settings">
@@ -1461,6 +1473,7 @@ resize();
 makeStage(1);
 applyStaticText();
 showTitle();
+checkSchema();
 loadProgress().then(() => { const el = card.querySelector('#lvline'); if (el) el.textContent = L().lvShort(levelInfo(PG.xp).lv, PG.brass.toLocaleString()); });
 requestAnimationFrame(frame);
 })();

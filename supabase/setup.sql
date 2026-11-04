@@ -418,3 +418,15 @@ grant execute on function public.buy_item(text, text)            to anon, authen
 grant execute on function public.equip_item(text, text)          to anon, authenticated;
 
 notify pgrst, 'reload schema';
+
+-- ── 서버 SQL 버전: 게임이 시작할 때 확인해서, 옛 버전이면 첫 화면에 "SQL 다시 실행" 경고를 띄웁니다. ──
+-- setup.sql을 바꿀 때마다 이 숫자와 index.html의 SCHEMA_VERSION을 함께 올립니다.
+create or replace function public.bullet_schema_version()
+returns integer
+language sql
+immutable
+as $$ select 3 $$;
+revoke all on function public.bullet_schema_version() from public;
+grant execute on function public.bullet_schema_version() to anon, authenticated;
+
+notify pgrst, 'reload schema';
