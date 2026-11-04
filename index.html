@@ -34,6 +34,10 @@
   #info b { color: var(--accent); }
   #info .row { display: flex; justify-content: space-between; gap: 14px; }
   #info .sep { height: 1px; background: rgba(255,255,255,.18); margin: 5px 0; }
+  #info .bars { color: #9fe9ff; font-size: 12px; }
+  #info .bars b { display: inline-block; width: 6px; height: 11px; margin-right: 2px; border-radius: 1px;
+    background: rgba(255,255,255,.18); vertical-align: -1px; }
+  #info .bars b.on { background: #9fe9ff; }
   #ammo span { display: inline-block; width: 6px; height: 15px; margin-right: 3px; border-radius: 3px 3px 1px 1px;
     background: linear-gradient(#ffe39a, #c8902b); vertical-align: -3px; }
   #ammo span.used { background: rgba(255,255,255,.18); }
@@ -192,6 +196,7 @@ const I18N = {
     rankTitle: '🌍 랭킹', rankSubOnline: '전 세계 사수들의 최고 기록 · 1인 1기록', rankSubLocal: '이 기기에서 등록한 기록',
     back: '뒤로', countryOther: '알 수 없음',
     hudScore: '점수', hudAmmo: '탄약', hudDist: '거리', hudHeight: '표적 높이', hudWind: '바람', windNone: '없음',
+    windLv: ['약함', '보통', '강함', '매우 강함'], windEffect: '바람 영향', windEffVal: (d, up) => d === '0.0' ? '거의 없음' : `탄착 ${d}m ${up ? '위' : '아래'}`,
     pred: (inside, d, up, t) => `예상 탄착: ${inside ? '표적 안 · ' : ''}중심보다 ${d}m ${up ? '위' : '아래'} · ${t}초 후 도달`,
     predMoving: '표적이 움직여요. 도달 시간 동안의 이동을 고려하세요',
     predShort: d => `예상 탄착: 표적 ${d}m 앞 지면. 각도를 올리세요`,
@@ -244,6 +249,7 @@ const I18N = {
     rankTitle: '🌍 Leaderboard', rankSubOnline: 'Best shooters around the world · one entry each', rankSubLocal: 'Scores saved on this device',
     back: 'Back', countryOther: 'Unknown',
     hudScore: 'Score', hudAmmo: 'Ammo', hudDist: 'Distance', hudHeight: 'Target height', hudWind: 'Wind', windNone: 'None',
+    windLv: ['Light', 'Moderate', 'Strong', 'Very strong'], windEffect: 'Wind effect', windEffVal: (d, up) => d === '0.0' ? 'negligible' : `impact ${d} m ${up ? 'higher' : 'lower'}`,
     pred: (inside, d, up, t) => `Predicted: ${inside ? 'on target · ' : ''}${d} m ${up ? 'above' : 'below'} center · arrives in ${t}s`,
     predMoving: 'Moving target: lead it by the flight time',
     predShort: d => `Predicted: lands ${d} m short. Raise your angle`,
@@ -356,21 +362,21 @@ function muzzleTip(angleDeg) {
   return { x: PIVOT.x + Math.cos(a) * BARREL, y: PIVOT.y + Math.sin(a) * BARREL, a };
 }
 
-function integrate(b, dt) {
-  b.vx += WIND_K * S.wind * dt;
+function integrate(b, dt, wind = S.wind) {
+  b.vx += WIND_K * wind * dt;
   b.vy -= G * dt;
   b.x += b.vx * dt;
   b.y += b.vy * dt;
 }
 
 // 현재 각도로 쐈을 때 표적 평면(x = T.x)을 지나는 높이와 시간을 계산
-function predict(angleDeg) {
+function predict(angleDeg, wind = S.wind) {
   const T = S.target, tip = muzzleTip(angleDeg);
   const b = { x: tip.x, y: tip.y, vx: V0 * Math.cos(tip.a), vy: V0 * Math.sin(tip.a) };
   let t = 0;
   while (t < 14) {
     const px = b.x, py = b.y;
-    integrate(b, PHYS_DT); t += PHYS_DT;
+    integrate(b, PHYS_DT, wind); t += PHYS_DT;
     if (b.x >= T.x) { const f = (T.x - px) / (b.x - px); return { reach: true, y: py + (b.y - py) * f, t }; }
     if (b.y < 0) return { reach: false, x: b.x, t };
   }
@@ -871,6 +877,8 @@ function update(rdt) {
   if (T) { S.time += dt; T.y = targetY(); }
   if (T && (S.state === 'aim' || S.state === 'intro') && (!S.pred || S.pred.angle !== S.angle || S.pred.stage !== S.stage)) {
     S.pred = Object.assign(predict(S.angle), { angle: S.angle, stage: S.stage });
+    const calm = predict(S.angle, 0);
+    S.windEff = Math.abs(S.wind) >= 0.05 && S.pred.reach && calm.reach ? S.pred.y - calm.y : null;
   }
 
   if (S.state === 'flight') {
@@ -892,6 +900,7 @@ function update(rdt) {
   for (const p of S.popups) p.age += rdt;
   S.popups = S.popups.filter(p => p.age < p.life);
   for (const c of S.clouds) c.x += S.wind * 0.25 * dt;
+  updateMotes(dt);
 
   S.shake = Math.max(0, S.shake - rdt * 1.6);
   S.flash = Math.max(0, S.flash - rdt);
@@ -1024,6 +1033,7 @@ function drawMarkers() {
   for (let d = 25; d < T.x - 4; d += 25) {
     const x = sx(d);
     if (x < -50 || x > V.w + 50) continue;
+    drawFlag(d, 3.2, 1.1, '#ff6a2b', '#fff', d * 0.37);
     ctx.fillStyle = '#eee';
     ctx.fillRect(x - 0.05 * z, gy - 0.8 * z, 0.1 * z, 0.8 * z);
     ctx.fillStyle = 'rgba(20,20,20,.7)';
@@ -1031,6 +1041,55 @@ function drawMarkers() {
     ctx.fillStyle = '#fff';
     ctx.fillText(`${d}m`, x, gy - 0.86 * z);
   }
+}
+
+// 바람 깃발: 바람 방향으로 날리고, 셀수록 수평에 가깝게 펴집니다(10m/s면 완전히 수평).
+function windPose(phase = 0) {
+  const lift = clamp(Math.abs(S.wind) / 10, 0, 1);
+  const dir = S.wind >= 0 ? 1 : -1;
+  const ang = dir > 0 ? lerp(Math.PI / 2 - 0.05, 0, lift) : lerp(Math.PI / 2 + 0.05, Math.PI, lift);
+  return ang + Math.sin(performance.now() / (90 + 60 * (1 - lift)) + phase) * (0.04 + 0.08 * lift);
+}
+function drawFlag(wx, poleTop, len, colorA, colorB, phase) {
+  const z = V.z, x = sx(wx), gy = sy(0), top = sy(poleTop);
+  if (x < -len * z * 2 || x > V.w + len * z * 2) return;
+  ctx.fillStyle = '#d9d9d9'; ctx.fillRect(x - Math.max(1, 0.04 * z), top, Math.max(2, 0.08 * z), gy - top);
+  ctx.save(); ctx.translate(x, top); ctx.rotate(windPose(phase));
+  const L = len * z, h = Math.max(4, 0.32 * z);
+  ctx.fillStyle = colorA;
+  ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(L, 0); ctx.lineTo(0, h / 2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = colorB;
+  ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(L * 0.45, -h * 0.27); ctx.lineTo(L * 0.45, h * 0.27); ctx.lineTo(0, h / 2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// 바람에 날리는 먼지: 화면 안에서 바람 속도로 흘러갑니다.
+S.motes = [];
+function updateMotes(dt) {
+  const w = S.wind;
+  if (Math.abs(w) < 0.3 || !S.target) { S.motes.length = 0; return; }
+  const halfW = W / 2 / cam.z, halfH = H / 2 / cam.z;
+  const left = cam.x - halfW, right = cam.x + halfW, bottom = Math.max(0.2, cam.y - halfH), top = cam.y + halfH;
+  const want = Math.round(clamp(Math.abs(w) * 6, 12, 60));
+  while (S.motes.length < want) S.motes.push({ x: rand(left, right), y: rand(bottom, top), k: rand(0.7, 1.3) });
+  S.motes.length = want;
+  for (const m of S.motes) {
+    m.x += w * 1.1 * m.k * dt;
+    m.y += Math.sin(m.x * 0.7 + m.k * 9) * 0.4 * dt;
+    const out = w > 0 ? m.x > right + 1 : m.x < left - 1;
+    if (out || m.x < left - 3 || m.x > right + 3 || m.y < bottom - 1 || m.y > top + 1) {
+      m.x = w > 0 ? left - rand(0, 1) : right + rand(0, 1);
+      m.y = rand(bottom, top);
+    }
+  }
+}
+function drawMotes() {
+  if (!S.motes.length) return;
+  const len = Math.max(4, Math.abs(S.wind) * 0.12 * V.z) * Math.sign(S.wind);
+  ctx.strokeStyle = 'rgba(255,248,230,.45)'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (const m of S.motes) { const x = sx(m.x), y = sy(m.y); ctx.moveTo(x, y); ctx.lineTo(x - len * m.k, y); }
+  ctx.stroke();
 }
 
 function drawWindsock() {
@@ -1078,6 +1137,8 @@ function drawTarget() {
   ctx.strokeStyle = '#3b2a1a'; ctx.lineWidth = Math.max(1.5, 0.06 * z);
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
   if (r > 10) { ctx.fillStyle = '#7a5a14'; ctx.beginPath(); ctx.arc(x, y, Math.max(1, r * 0.02), 0, Math.PI * 2); ctx.fill(); }
+  // 표적 옆 바람 깃발
+  drawFlag(T.x + T.R + 0.9, Math.max(3, T.baseY + T.amp + T.R + 0.6), 1.0, '#ffd23f', '#e63946', 1.7);
   // 탄흔
   for (const d of S.marks) {
     const my = sy(T.y + d), mr = Math.max(1.6, 0.05 * z);
@@ -1257,6 +1318,7 @@ function drawWorld(full) {
     drawBullet();
     drawShooter();
     drawParticles();
+    drawMotes();
     drawPopups();
   }
 }
@@ -1354,7 +1416,11 @@ function updateHud() {
   const T = S.target;
   const ammo = Array.from({ length: S.maxAmmo }, (_, i) => `<span class="${i < S.ammo ? '' : 'used'}"></span>`).join('');
   const w = S.wind;
-  const windStr = Math.abs(w) < 0.05 ? L().windNone : `${w > 0 ? '→' : '←'} ${Math.abs(w).toFixed(1)} m/s`;
+  const aw = Math.abs(w), lv = aw < 3 ? 0 : aw < 6 ? 1 : aw < 9 ? 2 : 3;
+  const bars = Math.min(5, Math.ceil(aw / 2.2));
+  const windStr = aw < 0.05 ? L().windNone
+    : `${w > 0 ? '→' : '←'} ${aw.toFixed(1)} m/s</span></div><div class="row"><span></span><span class="bars">${'<b class="on"></b>'.repeat(bars)}${'<b></b>'.repeat(5 - bars)} ${L().windLv[lv]}`;
+  const eff = S.windEff;
   const html =
     `<div class="row"><span>STAGE</span><b>${S.stage}</b></div>` +
     `<div class="row"><span>${L().hudScore}</span><b>${S.score.toLocaleString()}</b></div>` +
@@ -1363,6 +1429,7 @@ function updateHud() {
     `<div class="row"><span>${L().hudDist}</span><span>${T.x.toFixed(1)} m</span></div>` +
     `<div class="row"><span>${L().hudHeight}</span><span>${T.amp > 0 ? `${T.baseY.toFixed(1)}±${T.amp.toFixed(1)}` : T.y.toFixed(1)} m</span></div>` +
     `<div class="row"><span>${L().hudWind}</span><span>${windStr}</span></div>` +
+    (eff != null ? `<div class="row"><span>${L().windEffect}</span><span>${L().windEffVal(Math.abs(eff).toFixed(1), eff >= 0)}</span></div>` : '') +
     (S.state === 'result' && !S.result.hit ? `<div class="sep"></div><div style="color:#ffb3b3">${S.result.msg}</div><div style="color:#ffd27a">${S.hint || ''}</div>` : '');
   if (html !== lastInfo) { infoEl.innerHTML = html; lastInfo = html; }
   let pl = '';
