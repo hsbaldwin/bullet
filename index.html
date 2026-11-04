@@ -164,7 +164,7 @@ const I18N = {
       '첫 발 명중 시 ×1.5 보너스, 연속 원샷은 추가 점수!',
     ],
     myBest: v => `내 최고 기록 ${v}`,
-    start: '사격 시작', rankingBtn: '🌍 랭킹 보기', langToggle: 'English',
+    start: '사격 시작', rankingBtn: '🌍 랭킹 보기', langToggle: 'English', fpsLink: '🧪 1인칭 시험판 (가늠쇠 사격)',
     bullseye: '불스아이!', great: '훌륭해요!', hit: '명중!', close: '아슬아슬!',
     ringPts: (r, p, f) => `${r}점 링 · +${p}${f ? ' (원샷 ×1.5)' : ''}`,
     streak: (n, b) => `연속 원샷 ${n}회! +${b}`,
@@ -217,7 +217,7 @@ const I18N = {
       'First-shot hits score ×1.5, and one-shot streaks earn bonus points',
     ],
     myBest: v => `Your best: ${v}`,
-    start: 'Start', rankingBtn: '🌍 Leaderboard', langToggle: '한국어',
+    start: 'Start', rankingBtn: '🌍 Leaderboard', langToggle: '한국어', fpsLink: '🧪 First-person prototype (iron sights)',
     bullseye: 'BULLSEYE!', great: 'Great shot!', hit: 'Hit!', close: 'Close call!',
     ringPts: (r, p, f) => `Ring ${r} · +${p}${f ? ' (one-shot ×1.5)' : ''}`,
     streak: (n, b) => `${n} one-shots in a row! +${b}`,
@@ -1466,7 +1466,8 @@ showCard(`
   <p class="sub">${L().tagline}</p>
   <ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
   ${best ? `<p class="sub">${L().myBest(best.toLocaleString())}</p>` : ''}
-  <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button></div>`);
+  <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button></div>
+  <p class="note" style="margin:14px 0 0"><a href="fps.html" style="color:#9fe9ff">${L().fpsLink}</a></p>`);
 card.querySelector('#rank').addEventListener('click', showRanking);
 card.querySelector('#lang').addEventListener('click', () => {
   LANG = LANG === 'ko' ? 'en' : 'ko';
