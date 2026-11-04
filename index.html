@@ -695,11 +695,11 @@ const LB = (() => {
     on,
     async top(f) {
       return req('/rest/v1/rpc/top_scores', { method: 'POST',
-        body: JSON.stringify({ p_mode: f.mode, p_day: f.day, p_since: f.since, p_limit: 50 }) });
+        body: JSON.stringify({ p_since: f.since, p_limit: 50 }) });
     },
     async countries(f) {
       return req('/rest/v1/rpc/country_stats', { method: 'POST',
-        body: JSON.stringify({ p_mode: f.mode, p_day: f.day, p_since: f.since }) });
+        body: JSON.stringify({ p_since: f.since }) });
     },
     async submit(name, country, score, stage) {
       const rows = await req('/rest/v1/rpc/submit_score', { method: 'POST',
@@ -770,7 +770,7 @@ function boardHtml() {
 let boardPeriod = 'all', boardHighlight = null, boardKind = 'player';
 function boardFilter(period) {
   const since = period === 'all' ? null : new Date(Date.now() - (period === 'day' ? 1 : 7) * 864e5).toISOString();
-  return { mode: 'normal', day: null, since };
+  return { since };
 }
 // 서버가 없을 때: 이 기기 기록에서 플레이어별 최고 기록만 추립니다.
 function localTop(f) {
