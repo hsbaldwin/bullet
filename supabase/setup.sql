@@ -236,3 +236,185 @@ grant execute on function public.top_scores(int)                    to anon, aut
 
 -- API가 새 함수를 바로 알아보도록 스키마 캐시를 새로 고칩니다.
 notify pgrst, 'reload schema';
+
+-- ════════════════════════════════════════════════════════════════
+-- 성장 자산: 경험치·계급·탄피(게임 화폐)·병기고 아이템
+--   * 실제 돈으로 바꿀 수 없는 게임 안의 가치입니다(꾸미기 전용, 랭킹에 영향 없음).
+--   * 지급량은 게임이 보낸 값이 아니라 서버가 점수 상한을 검사한 뒤 직접 계산합니다.
+--   * 플레이어는 랭킹과 같은 브라우저 토큰(해시)으로 구별합니다. 닉네임을 등록하지 않아도 쌓입니다.
+-- ════════════════════════════════════════════════════════════════
+create table if not exists public.progress (
+  token_hash  text        primary key,
+  xp          bigint      not null default 0 check (xp >= 0),
+  brass       bigint      not null default 0 check (brass >= 0),
+  runs        integer     not null default 0,
+  shots_hit   integer     not null default 0,
+  bulls       integer     not null default 0,
+  best_stage  integer     not null default 0,
+  owned       text[]      not null default array['sight_default', 'finish_black', 'tracer_default'],
+  equipped    jsonb       not null default '{"sight": "sight_default", "finish": "finish_black", "tracer": "tracer_default"}',
+  last_run_at timestamptz not null default 'epoch',
+  created_at  timestamptz not null default now()
+);
+alter table public.progress enable row level security;
+revoke all on public.progress from anon, authenticated;
+
+-- 병기고 아이템 목록(가격·필요 계급). 게임 화면의 목록과 같아야 합니다.
+create table if not exists public.shop_items (
+  id        text primary key,
+  category  text not null check (category in ('sight', 'finish', 'tracer')),
+  price     integer not null check (price >= 0),
+  min_level integer not null default 1
+);
+alter table public.shop_items enable row level security;
+revoke all on public.shop_items from anon, authenticated;
+insert into public.shop_items (id, category, price, min_level) values
+  ('sight_default',  'sight',     0,  1), ('sight_white',   'sight',  150,  2),
+  ('sight_orange',   'sight',   300,  4), ('sight_tritium', 'sight',  800,  8),
+  ('finish_black',   'finish',    0,  1), ('finish_wood',   'finish', 250,  3),
+  ('finish_desert',  'finish',  400,  5), ('finish_carbon', 'finish', 700,  7),
+  ('finish_gold',    'finish', 2000, 12),
+  ('tracer_default', 'tracer',    0,  1), ('tracer_red',    'tracer', 200,  2),
+  ('tracer_green',   'tracer',  350,  4), ('tracer_blue',   'tracer', 500,  6),
+  ('tracer_violet',  'tracer',  900,  9), ('tracer_gold',   'tracer', 1500, 11)
+on conflict (id) do update set category = excluded.category, price = excluded.price, min_level = excluded.min_level;
+
+-- 계급: 레벨 n에서 n+1로 가려면 250 + 125·(n-1) 경험치
+create or replace function public.bullet_level(p_xp bigint)
+returns integer
+language plpgsql
+immutable
+as $$
+declare lv integer := 1; need bigint := 250; rest bigint := greatest(coalesce(p_xp, 0), 0);
+begin
+  while rest >= need and lv < 99 loop
+    rest := rest - need; lv := lv + 1; need := 250 + 125 * (lv - 1);
+  end loop;
+  return lv;
+end;
+$$;
+revoke all on function public.bullet_level(bigint) from public, anon, authenticated;
+
+create or replace function public.bullet_check_token(p_token text)
+returns text
+language plpgsql
+immutable
+as $$
+begin
+  if p_token is null or p_token !~ '^[0-9a-f]{64}$' then
+    raise exception 'invalid token';
+  end if;
+  return encode(sha256(convert_to(p_token, 'UTF8')), 'hex');
+end;
+$$;
+revoke all on function public.bullet_check_token(text) from public, anon, authenticated;
+
+-- 내 자산 조회(없으면 기본값)
+create or replace function public.get_progress(p_token text)
+returns table (xp bigint, brass bigint, level integer, runs integer, shots_hit integer, bulls integer,
+               best_stage integer, owned text[], equipped jsonb)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare v_hash text := bullet_check_token(p_token);
+begin
+  return query
+    select coalesce(g.xp, 0), coalesce(g.brass, 0), bullet_level(coalesce(g.xp, 0)), coalesce(g.runs, 0),
+           coalesce(g.shots_hit, 0), coalesce(g.bulls, 0), coalesce(g.best_stage, 0),
+           coalesce(g.owned, array['sight_default', 'finish_black', 'tracer_default']),
+           coalesce(g.equipped, '{"sight": "sight_default", "finish": "finish_black", "tracer": "tracer_default"}'::jsonb)
+    from (select 1) d left join progress g on g.token_hash = v_hash;
+end;
+$$;
+
+-- 한 판 기록: 경험치 = 점수, 탄피 = 점수/20 + 클리어 스테이지×2 + 불스아이×5
+create or replace function public.record_run(p_token text, p_score int, p_stage int, p_bulls int)
+returns table (gained_xp integer, gained_brass integer, xp bigint, brass bigint, level integer, level_before integer)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_hash    text := bullet_check_token(p_token);
+  v_cleared integer;
+  v_max     bigint;
+  v_brass   integer;
+  v_before  integer;
+  g         progress%rowtype;
+begin
+  if p_stage is null or p_stage < 1 or p_stage > 500 then raise exception 'invalid stage'; end if;
+  v_cleared := p_stage - 1;
+  v_max := v_cleared * 400 + 25 * v_cleared * greatest(v_cleared - 1, 0) / 2;
+  if p_score is null or p_score < 0 or p_score > v_max then raise exception 'implausible score'; end if;
+  if p_bulls is null or p_bulls < 0 or p_bulls > v_cleared then raise exception 'implausible score'; end if;
+
+  insert into progress (token_hash) values (v_hash) on conflict (token_hash) do nothing;
+  select * into g from progress where token_hash = v_hash for update;
+  if g.last_run_at > now() - interval '10 seconds' then raise exception 'too many submissions'; end if;
+
+  v_before := bullet_level(g.xp);
+  v_brass := p_score / 20 + v_cleared * 2 + p_bulls * 5;
+  update progress set
+    xp = progress.xp + p_score, brass = progress.brass + v_brass, runs = progress.runs + 1,
+    shots_hit = progress.shots_hit + v_cleared, bulls = progress.bulls + p_bulls,
+    best_stage = greatest(progress.best_stage, p_stage), last_run_at = now()
+  where token_hash = v_hash
+  returning * into g;
+  return query select p_score, v_brass, g.xp, g.brass, bullet_level(g.xp), v_before;
+end;
+$$;
+
+-- 병기고 구매(잔액·계급·중복 확인)
+create or replace function public.buy_item(p_token text, p_item text)
+returns table (brass bigint, owned text[])
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_hash text := bullet_check_token(p_token); it shop_items%rowtype; g progress%rowtype;
+begin
+  select * into it from shop_items where id = p_item;
+  if not found then raise exception 'unknown item'; end if;
+  insert into progress (token_hash) values (v_hash) on conflict (token_hash) do nothing;
+  select * into g from progress where token_hash = v_hash for update;
+  if p_item = any(g.owned) then raise exception 'already owned'; end if;
+  if bullet_level(g.xp) < it.min_level then raise exception 'level too low'; end if;
+  if g.brass < it.price then raise exception 'not enough brass'; end if;
+  update progress set brass = progress.brass - it.price, owned = array_append(progress.owned, p_item)
+  where token_hash = v_hash returning * into g;
+  return query select g.brass, g.owned;
+end;
+$$;
+
+-- 장착(가진 아이템만)
+create or replace function public.equip_item(p_token text, p_item text)
+returns table (equipped jsonb)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_hash text := bullet_check_token(p_token); it shop_items%rowtype; g progress%rowtype;
+begin
+  select * into it from shop_items where id = p_item;
+  if not found then raise exception 'unknown item'; end if;
+  insert into progress (token_hash) values (v_hash) on conflict (token_hash) do nothing;
+  select * into g from progress where token_hash = v_hash for update;
+  if not (p_item = any(g.owned)) then raise exception 'not owned'; end if;
+  update progress set equipped = jsonb_set(progress.equipped, array[it.category], to_jsonb(p_item))
+  where token_hash = v_hash returning * into g;
+  return query select g.equipped;
+end;
+$$;
+
+revoke all on function public.get_progress(text)                 from public;
+revoke all on function public.record_run(text, int, int, int)    from public;
+revoke all on function public.buy_item(text, text)               from public;
+revoke all on function public.equip_item(text, text)             from public;
+grant execute on function public.get_progress(text)              to anon, authenticated;
+grant execute on function public.record_run(text, int, int, int) to anon, authenticated;
+grant execute on function public.buy_item(text, text)            to anon, authenticated;
+grant execute on function public.equip_item(text, text)          to anon, authenticated;
+
+notify pgrst, 'reload schema';

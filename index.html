@@ -104,6 +104,26 @@
   .settings output { font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; opacity: .85; }
   .settings .chk { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; opacity: .9; }
   .settings input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+  .gain { margin: 4px 0 2px; font-size: 14px; font-weight: 700; color: #9fe9ff; }
+  .gain.up { color: var(--accent); } .gain.err { color: #ff9b9b; font-weight: 500; }
+  .lvline { margin: -6px 0 14px; font-size: 13px; opacity: .85; }
+  .rankbox { text-align: left; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.06); margin: 10px 0 4px; }
+  .rkrow { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .rkrow b { font-size: 18px; color: var(--accent); } .rkrow.sm { font-size: 12px; opacity: .8; margin-top: 4px; }
+  .brass { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .xpbar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.14); overflow: hidden; margin-top: 8px; }
+  .xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #ffcf3f, #ffe58a); }
+  .items { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; text-align: left; }
+  .items li { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,.04); }
+  .items li.on { outline: 1px solid rgba(255,207,63,.6); background: rgba(255,207,63,.1); }
+  .items .iname { min-width: 0; font-size: 14px; }
+  .sw { display: grid; place-items: center; width: 34px; height: 22px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2); }
+  .sw b { width: 8px; height: 8px; border-radius: 50%; }
+  .card button.mini { padding: 6px 12px; font-size: 13px; background: rgba(255,255,255,.14); color: #fff; white-space: nowrap; }
+  .card button.mini.buy { background: var(--accent); color: #1b1300; }
+  .card button.mini.on { background: transparent; color: var(--accent); }
+  .xfer { text-align: left; margin-top: 12px; font-size: 13px; } .xfer summary { cursor: pointer; opacity: .85; }
+  .xfer .submit { margin: 6px 0; } .xfer input { font-family: ui-monospace, monospace; font-size: 12px; }
   kbd { background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 5px; font-size: 12px; }
   [hidden] { display: none !important; }
 </style>
@@ -178,6 +198,23 @@ const I18N = {
       '스테이지마다 탄 3발. 명중하면 다음 스테이지',
     ],
     start: '사격 시작', classic: '2D 클래식 버전', langToggle: 'English',
+    armory: '🎖 병기고', brassName: '탄피', lvName: l => `계급 ${l}`, lvShort: (l, b) => `🎖 계급 ${l} · 🔶 탄피 ${b}`,
+    xpBar: (c, n) => `다음 계급까지 ${c} / ${n} XP`,
+    stats: (r, h, b, st) => `통산 ${r}판 · 명중 ${h} · 불스아이 ${b} · 최고 스테이지 ${st}`,
+    catSight: '가늠쇠 점', catFinish: '총몸 마감', catTracer: '예광탄 색',
+    buy: p => `🔶 ${p}`, equip: '장착', equipped: '장착 중', needLv: l => `계급 ${l} 필요`,
+    recording: '자산 기록 중…', gained: (x, b) => `획득: +${x} XP · +${b} 탄피`, levelUp: l => `🎖 계급 ${l} 달성!`, gainFail: '자산을 기록하지 못했어요: ',
+    transfer: '🔑 기록 이전 코드 (다른 기기로 옮기기)',
+    transferNote: '다른 기기에서 이 코드를 입력하면 계급·탄피·아이템·랭킹 기록을 그대로 옮길 수 있어요. 비밀번호처럼 다루고 남에게 보여주지 마세요.',
+    copyCode: '복사', codePh: '다른 기기에서 복사한 코드 붙여넣기', applyCode: '적용',
+    codeBad: '코드는 64자리(0-9, a-f)예요', codeOk: '적용했어요. 다시 불러올게요', copiedCode: '코드를 복사했어요',
+    offline: '서버에 연결할 수 없어 마지막으로 불러온 자산을 보여줘요. 지금은 구매할 수 없어요',
+    localAssets: '서버가 연결되지 않아 자산이 이 기기에만 저장돼요',
+    errNotEnough: '탄피가 부족해요', errLevel: '계급이 부족해요', errOwned: '이미 가진 아이템이에요',
+    assetNote: '탄피와 아이템은 게임 안에서만 쓰는 꾸미기 자산이에요. 현금으로 바꿀 수 없고 점수에는 영향이 없어요.',
+    items: { sight_default: '기본 (점 없음)', sight_white: '흰 점', sight_orange: '형광 주황 점', sight_tritium: '트리튬 녹색 (은은하게 빛남)',
+      finish_black: '블랙', finish_wood: '월넛 우드', finish_desert: '데저트', finish_carbon: '카본', finish_gold: '골드',
+      tracer_default: '기본 (금빛)', tracer_red: '레드', tracer_green: '그린', tracer_blue: '블루', tracer_violet: '바이올렛', tracer_gold: '골드' },
     sens: '마우스 감도', sensTouch: '터치 감도', smooth: '조준 떨림 보정 (천천히 움직일 때 부드럽게)',
     share: '📤 결과 공유',
     shareHead: (st, sc) => `BULLET 🎯 스테이지 ${st} · ${sc}점`,
@@ -246,6 +283,23 @@ const I18N = {
       '3 rounds per stage. Hit to advance',
     ],
     start: 'Start', classic: '2D classic version', langToggle: '한국어',
+    armory: '🎖 Armory', brassName: 'brass', lvName: l => `Rank ${l}`, lvShort: (l, b) => `🎖 Rank ${l} · 🔶 ${b} brass`,
+    xpBar: (c, n) => `Next rank: ${c} / ${n} XP`,
+    stats: (r, h, b, st) => `${r} runs · ${h} hits · ${b} bullseyes · best stage ${st}`,
+    catSight: 'Front sight dot', catFinish: 'Rifle finish', catTracer: 'Tracer color',
+    buy: p => `🔶 ${p}`, equip: 'Equip', equipped: 'Equipped', needLv: l => `Rank ${l}`,
+    recording: 'Saving your progress…', gained: (x, b) => `Earned: +${x} XP · +${b} brass`, levelUp: l => `🎖 Rank ${l} reached!`, gainFail: 'Couldn’t save progress: ',
+    transfer: '🔑 Transfer code (move to another device)',
+    transferNote: 'Enter this code on another device to move your rank, brass, items and leaderboard entry. Treat it like a password and never share it.',
+    copyCode: 'Copy', codePh: 'Paste a code from your other device', applyCode: 'Apply',
+    codeBad: 'Codes are 64 characters (0-9, a-f)', codeOk: 'Applied. Reloading…', copiedCode: 'Code copied',
+    offline: 'Can’t reach the server, so this shows your last loaded progress. Purchases are paused',
+    localAssets: 'No server connected, so progress is saved on this device only',
+    errNotEnough: 'Not enough brass', errLevel: 'Rank too low', errOwned: 'You already own this',
+    assetNote: 'Brass and items are cosmetic, in-game only. They can’t be cashed out and don’t affect scores.',
+    items: { sight_default: 'Standard (no dot)', sight_white: 'White dot', sight_orange: 'Fluorescent orange dot', sight_tritium: 'Tritium green (soft glow)',
+      finish_black: 'Black', finish_wood: 'Walnut', finish_desert: 'Desert', finish_carbon: 'Carbon', finish_gold: 'Gold',
+      tracer_default: 'Standard (warm)', tracer_red: 'Red', tracer_green: 'Green', tracer_blue: 'Blue', tracer_violet: 'Violet', tracer_gold: 'Gold' },
     sens: 'Mouse sensitivity', sensTouch: 'Touch sensitivity', smooth: 'Aim smoothing (steadier slow movements)',
     share: '📤 Share result',
     shareHead: (st, sc) => `BULLET 🎯 Stage ${st} · ${sc} pts`,
@@ -466,7 +520,7 @@ function onHit(hx, hy, dx, dy) {
   const first = S.shots === 1;
   S.streak = first ? S.streak + 1 : 0;
   const pts = Math.round((ring * 10 + Math.round(T.z)) * (first ? 1.5 : 1)) + (first && S.streak > 1 ? (S.streak - 1) * 25 : 0);
-  S.score += pts; S.history.push(ring);
+  S.score += pts; S.history.push(ring); if (ring === 10) S.runBulls++;
   const label = ring === 10 ? L().bullseye : ring >= 8 ? L().great : ring >= 5 ? L().hit : L().close;
   S.popup = { title: label, sub: L().ringPts(ring, pts, first), gold: ring === 10, age: 0 };
   const [h, v] = offText(dx, dy); S.feedback = L().hitAt(h, v);
@@ -504,7 +558,7 @@ function startStage() {
 }
 function startGame() {
   audio();
-  S.stage = 1; S.score = 0; S.streak = 0; S.time = 0; S.particles = []; S.breath = 1; S.winded = false; S.history = []; S.lastRank = null;
+  S.stage = 1; S.score = 0; S.streak = 0; S.time = 0; S.particles = []; S.breath = 1; S.winded = false; S.history = []; S.lastRank = null; S.runBulls = 0;
   overlay.classList.add('hidden');
   startStage();
 }
@@ -524,6 +578,7 @@ function gameOver() {
     <h1>GAME OVER</h1>
     <p class="sub" style="margin-bottom:6px">${L().goSub}</p>
     <div class="big">${S.score.toLocaleString()}</div>
+    <div class="gain" id="gain">${L().recording}</div>
     <p class="sub" style="margin-bottom:0">${L().goStats(S.stage, best.toLocaleString(), isBest)}</p>
     <div class="sharecard" id="sharecard"></div>
     <div class="btns"><button id="share">${L().share}</button><button class="ghost" id="go2">${L().retry}</button></div>
@@ -537,6 +592,11 @@ function gameOver() {
     <h3>${LB.on ? L().hWorld : L().hLocal}</h3>
     ${boardHtml()}
     <div class="btns"><button id="go">${L().retry}</button></div>`);
+  const gainEl = card.querySelector('#gain');
+  recordRun(S.score, S.stage, S.runBulls || 0).then(g => {
+    gainEl.textContent = L().gained(g.xp.toLocaleString(), g.brass.toLocaleString()) + (g.after > g.before ? ' · ' + L().levelUp(g.after) : '');
+    if (g.after > g.before) gainEl.classList.add('up');
+  }).catch(err => { gainEl.textContent = L().gainFail + friendlyError(err); gainEl.classList.add('err'); });
   const sharecard = card.querySelector('#sharecard'), sharestatus = card.querySelector('#sharestatus');
   sharecard.textContent = shareText();
   card.querySelector('#share').addEventListener('click', () => shareResult(sharestatus, sharecard));
@@ -654,7 +714,7 @@ const LB = (() => {
   }
   const one = rows => Array.isArray(rows) ? rows[0] : rows;
   return {
-    on,
+    on, rpc,
     top: () => rpc('top_scores', { p_limit: 50 }),
     me: async token => one(await rpc('my_entry', { p_token: token })),
     submit: async (token, name, score, stage) => one(await rpc('submit_score', { p_token: token, p_name: name, p_score: score, p_stage: stage })),
@@ -667,6 +727,10 @@ function friendlyError(err) {
   if (/name taken/i.test(m)) return L().errNameTaken;
   if (/too many players/i.test(m)) return L().errIpLimit;
   if (/too many/i.test(m)) return L().errRate;
+  if (/not enough brass/i.test(m)) return L().errNotEnough;
+  if (/level too low/i.test(m)) return L().errLevel;
+  if (/already owned/i.test(m)) return L().errOwned;
+  if (/^offline$/i.test(m)) return L().offline;
   if (/implausible/i.test(m)) return L().errImplausible;
   if (/invalid name/i.test(m)) return L().errName;
   if (/could not find the function|schema cache|does not exist/i.test(m)) return L().errOutdated;
@@ -747,6 +811,149 @@ function showRanking() {
     <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="back">${L().back}</button></div>`);
   card.querySelector('#back').addEventListener('click', showTitle);
   loadBoard(store.get('bullet.name'));
+}
+
+/* ───────────── 성장 자산 (경험치·계급·탄피·병기고) ───────────── */
+// 게임 안에서만 쓰는 꾸미기 자산입니다. 서버가 연결되어 있으면 서버가 지급·구매를 계산하고,
+// 없으면 같은 규칙으로 이 기기에 저장합니다. 목록·가격은 supabase/setup.sql의 shop_items와 같아야 합니다.
+const ITEMS = [
+  { id: 'sight_default',  cat: 'sight',  price: 0,    lv: 1,  dot: null },
+  { id: 'sight_white',    cat: 'sight',  price: 150,  lv: 2,  dot: '#ffffff' },
+  { id: 'sight_orange',   cat: 'sight',  price: 300,  lv: 4,  dot: '#ff7a1a' },
+  { id: 'sight_tritium',  cat: 'sight',  price: 800,  lv: 8,  dot: '#7dff6a', glow: true },
+  { id: 'finish_black',   cat: 'finish', price: 0,    lv: 1,  body: '#16181c', post: '#0d0e10' },
+  { id: 'finish_wood',    cat: 'finish', price: 250,  lv: 3,  body: '#5a3a22', post: '#1a120c' },
+  { id: 'finish_desert',  cat: 'finish', price: 400,  lv: 5,  body: '#8a7a5a', post: '#2b261c' },
+  { id: 'finish_carbon',  cat: 'finish', price: 700,  lv: 7,  body: '#23262b', post: '#0b0c0e', stripes: true },
+  { id: 'finish_gold',    cat: 'finish', price: 2000, lv: 12, body: '#b8913a', post: '#5a4416' },
+  { id: 'tracer_default', cat: 'tracer', price: 0,    lv: 1,  rgb: [255, 220, 160] },
+  { id: 'tracer_red',     cat: 'tracer', price: 200,  lv: 2,  rgb: [255, 80, 70] },
+  { id: 'tracer_green',   cat: 'tracer', price: 350,  lv: 4,  rgb: [90, 255, 120] },
+  { id: 'tracer_blue',    cat: 'tracer', price: 500,  lv: 6,  rgb: [90, 170, 255] },
+  { id: 'tracer_violet',  cat: 'tracer', price: 900,  lv: 9,  rgb: [190, 110, 255] },
+  { id: 'tracer_gold',    cat: 'tracer', price: 1500, lv: 11, rgb: [255, 205, 60] },
+];
+const ITEM = Object.fromEntries(ITEMS.map(i => [i.id, i]));
+const DEFAULT_OWNED = ['sight_default', 'finish_black', 'tracer_default'];
+const DEFAULT_EQ = { sight: 'sight_default', finish: 'finish_black', tracer: 'tracer_default' };
+const xpNeed = lv => 250 + 125 * (lv - 1);           // lv → lv+1에 필요한 경험치
+function levelInfo(xp) {
+  let lv = 1, rest = Math.max(0, xp);
+  while (rest >= xpNeed(lv) && lv < 99) { rest -= xpNeed(lv); lv++; }
+  return { lv, into: rest, need: xpNeed(lv) };
+}
+const PG = { xp: 0, brass: 0, runs: 0, hits: 0, bulls: 0, bestStage: 0, owned: [...DEFAULT_OWNED], eq: { ...DEFAULT_EQ }, offline: false };
+const equippedItem = cat => ITEM[PG.eq[cat]] || ITEM[DEFAULT_EQ[cat]];
+function applyServerProgress(r) {
+  if (!r) return;
+  Object.assign(PG, { xp: Number(r.xp), brass: Number(r.brass), runs: r.runs, hits: r.shots_hit, bulls: r.bulls, bestStage: r.best_stage,
+    owned: r.owned || [...DEFAULT_OWNED], eq: Object.assign({ ...DEFAULT_EQ }, r.equipped || {}), offline: false });
+  store.set('bullet.progress.cache', JSON.stringify(PG));
+}
+function loadLocalProgress(key) {
+  try { const v = JSON.parse(store.get(key) || 'null'); if (v) Object.assign(PG, v, { eq: Object.assign({ ...DEFAULT_EQ }, v.eq || {}) }); } catch (e) {}
+}
+const saveLocalProgress = () => store.set('bullet.progress', JSON.stringify(PG));
+async function loadProgress() {
+  if (LB.on) {
+    try { applyServerProgress((await LB.rpc('get_progress', { p_token: playerToken() }))[0]); }
+    catch (e) { loadLocalProgress('bullet.progress.cache'); PG.offline = true; }
+  } else loadLocalProgress('bullet.progress');
+  buildLayers();
+}
+// 한 판이 끝나면 자동으로 기록합니다. 지급량: 경험치 = 점수, 탄피 = 점수/20 + 클리어 스테이지×2 + 불스아이×5
+async function recordRun(score, stage, bulls) {
+  const before = levelInfo(PG.xp).lv;
+  if (LB.on) {
+    const r = (await LB.rpc('record_run', { p_token: playerToken(), p_score: score, p_stage: stage, p_bulls: bulls }))[0];
+    PG.xp = Number(r.xp); PG.brass = Number(r.brass); PG.runs++; PG.hits += stage - 1; PG.bulls += bulls; PG.bestStage = Math.max(PG.bestStage, stage);
+    store.set('bullet.progress.cache', JSON.stringify(PG));
+    return { xp: r.gained_xp, brass: r.gained_brass, before: r.level_before, after: r.level };
+  }
+  const brass = Math.floor(score / 20) + (stage - 1) * 2 + bulls * 5;
+  Object.assign(PG, { xp: PG.xp + score, brass: PG.brass + brass, runs: PG.runs + 1, hits: PG.hits + stage - 1, bulls: PG.bulls + bulls, bestStage: Math.max(PG.bestStage, stage) });
+  saveLocalProgress();
+  return { xp: score, brass, before, after: levelInfo(PG.xp).lv };
+}
+async function buyItem(id) {
+  const it = ITEM[id];
+  if (LB.on) {
+    if (PG.offline) throw new Error('offline');
+    const r = (await LB.rpc('buy_item', { p_token: playerToken(), p_item: id }))[0];
+    PG.brass = Number(r.brass); PG.owned = r.owned; store.set('bullet.progress.cache', JSON.stringify(PG)); return;
+  }
+  if (PG.owned.includes(id)) throw new Error('already owned');
+  if (levelInfo(PG.xp).lv < it.lv) throw new Error('level too low');
+  if (PG.brass < it.price) throw new Error('not enough brass');
+  PG.brass -= it.price; PG.owned.push(id); saveLocalProgress();
+}
+async function equipItem(id) {
+  const it = ITEM[id];
+  if (LB.on) {
+    if (PG.offline) throw new Error('offline');
+    const r = (await LB.rpc('equip_item', { p_token: playerToken(), p_item: id }))[0];
+    PG.eq = Object.assign({ ...DEFAULT_EQ }, r.equipped); store.set('bullet.progress.cache', JSON.stringify(PG));
+  } else {
+    if (!PG.owned.includes(id)) throw new Error('not owned');
+    PG.eq[it.cat] = id; saveLocalProgress();
+  }
+  buildLayers();
+}
+function swatch(it) {
+  if (it.cat === 'sight') return it.dot ? `<i class="sw" style="background:#0d0e10"><b style="background:${it.dot};${it.glow ? `box-shadow:0 0 6px ${it.dot}` : ''}"></b></i>` : '<i class="sw" style="background:#0d0e10"></i>';
+  if (it.cat === 'finish') return `<i class="sw" style="background:${it.body}${it.stripes ? ';background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.08) 0 3px,transparent 3px 6px)' : ''}"></i>`;
+  return `<i class="sw" style="background:linear-gradient(90deg,transparent,rgb(${it.rgb}))"></i>`;
+}
+function showArmory(msg) {
+  const li = levelInfo(PG.xp), pct = Math.round(li.into / li.need * 100);
+  const cats = [['sight', L().catSight], ['finish', L().catFinish], ['tracer', L().catTracer]];
+  const tile = it => {
+    const own = PG.owned.includes(it.id), on = PG.eq[it.cat] === it.id;
+    const btn = on ? `<button class="mini on" disabled>${L().equipped}</button>`
+      : own ? `<button class="mini" data-eq="${it.id}">${L().equip}</button>`
+      : li.lv < it.lv ? `<button class="mini" disabled>${L().needLv(it.lv)}</button>`
+      : `<button class="mini buy" data-buy="${it.id}" ${PG.brass < it.price || PG.offline ? 'disabled' : ''}>${L().buy(it.price.toLocaleString())}</button>`;
+    return `<li class="${on ? 'on' : ''}">${swatch(it)}<span class="iname">${L().items[it.id]}</span>${btn}</li>`;
+  };
+  showCard(`<h1 style="font-size:30px">${L().armory}</h1>
+    <div class="rankbox">
+      <div class="rkrow"><b>${L().lvName(li.lv)}</b><span class="brass">🔶 ${PG.brass.toLocaleString()} ${L().brassName}</span></div>
+      <div class="xpbar"><i style="width:${pct}%"></i></div>
+      <div class="rkrow sm"><span>${L().xpBar(li.into.toLocaleString(), li.need.toLocaleString())}</span><span>${PG.xp.toLocaleString()} XP</span></div>
+      <div class="rkrow sm"><span>${L().stats(PG.runs.toLocaleString(), PG.hits.toLocaleString(), PG.bulls.toLocaleString(), PG.bestStage)}</span></div>
+    </div>
+    <p class="status ${msg && msg.err ? 'err' : 'ok'}" id="amsg">${msg ? msg.text : (PG.offline ? L().offline : !LB.on ? L().localAssets : '')}</p>
+    ${cats.map(([c, name]) => `<h3>${name}</h3><ul class="items">${ITEMS.filter(i => i.cat === c).map(tile).join('')}</ul>`).join('')}
+    <p class="note">${L().assetNote}</p>
+    ${LB.on ? `<details class="xfer"><summary>${L().transfer}</summary>
+      <p class="note" style="margin:6px 0 8px">${L().transferNote}</p>
+      <div class="submit"><input id="mycode" readonly value="${playerToken()}"><button id="copycode" type="button">${L().copyCode}</button></div>
+      <div class="submit"><input id="incode" placeholder="${L().codePh}" maxlength="64" autocomplete="off"><button id="applycode" type="button">${L().applyCode}</button></div>
+    </details>` : ''}
+    <div class="btns" style="margin-top:14px"><button id="go">${L().start}</button><button class="ghost" id="back">${L().back}</button></div>`);
+  card.querySelector('#back').addEventListener('click', showTitle);
+  const amsg = card.querySelector('#amsg');
+  const act = async (fn, id) => {
+    card.querySelectorAll('.mini').forEach(b => { b.disabled = true; });
+    try { await fn(id); showArmory(); } catch (err) { showArmory({ err: true, text: friendlyError(err) }); }
+  };
+  card.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => act(buyItem, b.dataset.buy)));
+  card.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', () => act(equipItem, b.dataset.eq)));
+  const copy = card.querySelector('#copycode');
+  if (copy) {
+    copy.addEventListener('click', async () => {
+      const inp = card.querySelector('#mycode');
+      try { await navigator.clipboard.writeText(inp.value); amsg.className = 'status ok'; amsg.textContent = L().copiedCode; }
+      catch (e) { inp.select(); amsg.textContent = L().copyManual; }
+    });
+    card.querySelector('#applycode').addEventListener('click', () => {
+      const v = card.querySelector('#incode').value.trim().toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(v)) { amsg.className = 'status err'; amsg.textContent = L().codeBad; return; }
+      store.set('bullet.token', v); TOKEN = null; store.set('bullet.name', '');
+      amsg.className = 'status ok'; amsg.textContent = L().codeOk;
+      setTimeout(() => location.reload(), 600);
+    });
+  }
 }
 
 /* ───────────── 입력 ───────────── */
@@ -875,7 +1082,8 @@ function showTitle() {
     <p class="sub">${L().sub}</p>
     <ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
     ${best ? `<p class="sub">${L().myBest(best.toLocaleString())}</p>` : ''}
-    <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button></div>
+    <p class="lvline" id="lvline">${L().lvShort(levelInfo(PG.xp).lv, PG.brass.toLocaleString())}</p>
+    <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button><button class="ghost" id="armory">${L().armory}</button></div>
     <div class="settings">
       <label for="sens">${touchUI ? L().sensTouch : L().sens}</label>
       <input id="sens" type="range" min="0.3" max="3" step="0.1" value="${SENS}">
@@ -887,6 +1095,7 @@ function showTitle() {
   sens.addEventListener('input', () => { SENS = +sens.value; sensV.textContent = SENS.toFixed(1) + '×'; store.set('bullet.sens', String(SENS)); });
   card.querySelector('#smooth').addEventListener('change', e => { SMOOTH = e.target.checked; store.set('bullet.smooth', SMOOTH ? '1' : '0'); });
   card.querySelector('#rank').addEventListener('click', showRanking);
+  card.querySelector('#armory').addEventListener('click', () => showArmory());
   card.querySelector('#lang').addEventListener('click', () => {
     LANG = LANG === 'ko' ? 'en' : 'ko'; store.set('bullet.lang', LANG); document.documentElement.lang = LANG; showTitle(); applyStaticText();
   });
@@ -988,20 +1197,33 @@ function buildLayers() {
   const c = mkLayer(W * DPR, H * DPR), g = c.getContext('2d');
   g.setTransform(DPR, 0, 0, DPR, 0, 0);
   const cx = W / 2, cy = H / 2, u = Math.min(W, H) / 100;
-  g.fillStyle = '#16181c';
+  const fin = equippedItem('finish'), dot = equippedItem('sight');
+  g.fillStyle = fin.body;
   g.beginPath(); g.moveTo(cx - 34 * u, H); g.lineTo(cx - 9 * u, cy + 18 * u); g.lineTo(cx + 9 * u, cy + 18 * u); g.lineTo(cx + 34 * u, H); g.closePath(); g.fill();
+  if (fin.stripes) {
+    g.save(); g.clip(); g.strokeStyle = 'rgba(255,255,255,.07)'; g.lineWidth = 1.2 * u;
+    for (let x = -H; x < W; x += 3 * u) { g.beginPath(); g.moveTo(x, H); g.lineTo(x + H, 0); g.stroke(); }
+    g.restore();
+  }
   g.strokeStyle = 'rgba(20,22,26,.92)'; g.lineWidth = 7 * u;
   g.beginPath(); g.arc(cx, cy, 13 * u, 0, Math.PI * 2); g.stroke();
   g.fillStyle = 'rgba(20,22,26,.92)'; g.fillRect(cx - 5 * u, cy + 16 * u, 10 * u, H);
-  g.fillStyle = '#0d0e10';
+  g.fillStyle = fin.post;
   g.fillRect(cx - 0.45 * u, cy, 0.9 * u, 18 * u);
   g.beginPath(); g.moveTo(cx - 5.5 * u, cy + 18 * u); g.lineTo(cx - 4.2 * u, cy + 1.5 * u); g.lineTo(cx - 3.2 * u, cy + 1.5 * u); g.lineTo(cx - 3.6 * u, cy + 18 * u); g.closePath(); g.fill();
   g.beginPath(); g.moveTo(cx + 5.5 * u, cy + 18 * u); g.lineTo(cx + 4.2 * u, cy + 1.5 * u); g.lineTo(cx + 3.2 * u, cy + 1.5 * u); g.lineTo(cx + 3.6 * u, cy + 18 * u); g.closePath(); g.fill();
   g.fillRect(cx - 5.5 * u, cy + 16 * u, 11 * u, 3 * u);
+  if (dot.dot) { // 가늠쇠 끝의 점(조준점 바로 아래)
+    g.save(); if (dot.glow) { g.shadowColor = dot.dot; g.shadowBlur = 2.5 * u; }
+    g.fillStyle = dot.dot; g.beginPath(); g.arc(cx, cy + 0.7 * u, 0.42 * u, 0, Math.PI * 2); g.fill(); g.restore();
+  }
   const vg = g.createRadialGradient(cx, cy, 18 * u, cx, cy, Math.max(W, H) * 0.7);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)');
   g.fillStyle = vg; g.fillRect(0, 0, W, H);
   LY.sights = c;
+  const tr = equippedItem('tracer').rgb;
+  LY.glow = radialSprite(64, [[0, `rgba(${tr},.85)`], [1, `rgba(${tr},0)`]]);
+  LY.tracer = tr;
   // 탄 추적 화면의 비네트: 부드러운 그라디언트라 1/4 해상도로 충분합니다.
   const vw = Math.max(16, W / 4), vh = Math.max(16, H / 4), v = mkLayer(vw, vh), vgc = v.getContext('2d');
   const r = vgc.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.3, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
@@ -1112,7 +1334,7 @@ function drawBullet() {
   for (let i = 1; i < S.trail.length; i++) {
     const p0 = proj(S.trail[i - 1].x, S.trail[i - 1].y, S.trail[i - 1].z), p1 = proj(S.trail[i].x, S.trail[i].y, S.trail[i].z);
     if (!p0 || !p1) continue; const a = i / S.trail.length;
-    ctx.strokeStyle = `rgba(255,${Math.round(200 + 55 * a)},${Math.round(150 + 80 * a)},${a * 0.8})`;
+    const tr = LY.tracer; ctx.strokeStyle = `rgba(${Math.round(tr[0] + (255 - tr[0]) * a * 0.4)},${Math.round(tr[1] + (255 - tr[1]) * a * 0.4)},${Math.round(tr[2] + (255 - tr[2]) * a * 0.4)},${a * 0.85})`;
     ctx.lineWidth = clamp(0.03 * p1.s * a, 1, 5); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
   }
   for (const r of S.rings) {
@@ -1239,6 +1461,7 @@ resize();
 makeStage(1);
 applyStaticText();
 showTitle();
+loadProgress().then(() => { const el = card.querySelector('#lvline'); if (el) el.textContent = L().lvShort(levelInfo(PG.xp).lv, PG.brass.toLocaleString()); });
 requestAnimationFrame(frame);
 })();
 </script>
