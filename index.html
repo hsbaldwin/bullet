@@ -124,6 +124,21 @@
   .card button.mini.on { background: transparent; color: var(--accent); }
   .xfer { text-align: left; margin-top: 12px; font-size: 13px; } .xfer summary { cursor: pointer; opacity: .85; }
   .xfer .submit { margin: 6px 0; } .xfer input { font-family: ui-monospace, monospace; font-size: 12px; }
+  .card.wide { width: min(820px, calc(100vw - 32px)); }
+  .lhead .sub { margin-bottom: 8px; }
+  .lobby { display: grid; grid-template-columns: 1fr; gap: 16px; text-align: left; margin-top: 6px; }
+  @media (min-width: 720px) { .lobby { grid-template-columns: 1fr 1fr; } }
+  .lcol { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .lcol .rankbox { margin: 0; }
+  .card button.bigstart { width: 100%; padding: 16px; font-size: 20px; letter-spacing: .08em; }
+  .btns.two { display: grid; grid-template-columns: 1fr 1fr; }
+  .btns.two button { padding: 11px 8px; font-size: 15px; }
+  .lh { margin: 0 !important; text-align: left; }
+  .lcol .board { margin: 0; }
+  .fold { background: rgba(255,255,255,.04); border-radius: 10px; padding: 8px 12px; font-size: 14px; }
+  .fold summary { cursor: pointer; font-weight: 700; }
+  .fold ul { margin: 8px 0 2px; padding-left: 18px; line-height: 1.6; font-size: 13px; opacity: .92; }
+  .fold .settings { margin: 10px 0 2px; background: transparent; padding: 0; }
   kbd { background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 5px; font-size: 12px; }
   [hidden] { display: none !important; }
 </style>
@@ -198,8 +213,10 @@ const I18N = {
       '스테이지마다 탄 3발. 명중하면 다음 스테이지',
     ],
     start: '사격 시작', classic: '2D 클래식 버전', langToggle: 'English',
+    noName: '이름 없는 사수', bestScore: b => `내 최고 ${b}점`, worldRank: r => `🌍 세계 ${r}위`, top5: '🌍 세계 TOP 5',
+    howTo: '❓ 조작법', settings: '⚙️ 설정', sound: '소리', toLobby: '🏠 로비',
     schemaWarn: '⚠️ 서버 SQL 업데이트 필요: Supabase SQL Editor에서 supabase/setup.sql을 다시 실행하세요',
-    armory: '🎖 병기고', brassName: '탄피', lvName: l => `계급 ${l}`, lvShort: (l, b) => `🎖 계급 ${l} · 🔶 탄피 ${b}`,
+    armory: '🎖 병기고', brassName: '탄피', lvName: l => `계급 ${l}`,
     xpBar: (c, n) => `다음 계급까지 ${c} / ${n} XP`,
     stats: (r, h, b, st) => `통산 ${r}판 · 명중 ${h} · 불스아이 ${b} · 최고 스테이지 ${st}`,
     catSight: '가늠쇠 점', catFinish: '총몸 마감', catTracer: '예광탄 색',
@@ -255,7 +272,6 @@ const I18N = {
     rankSubLocal: '이 기기에서 등록한 기록',
     countryOther: '알 수 없음',
     rankingBtn: '🌍 랭킹 보기',
-    myBest: v => `내 최고 기록 ${v}`,
     back: '뒤로',
     stage: 'STAGE', score: '점수', ammo: '탄약', dist: '거리', wind: '바람', windNone: '없음',
     windLv: ['약함', '보통', '강함', '매우 강함'], moving: '움직이는 표적',
@@ -284,8 +300,10 @@ const I18N = {
       '3 rounds per stage. Hit to advance',
     ],
     start: 'Start', classic: '2D classic version', langToggle: '한국어',
+    noName: 'Unnamed shooter', bestScore: b => `Best ${b}`, worldRank: r => `🌍 World #${r}`, top5: '🌍 World TOP 5',
+    howTo: '❓ How to play', settings: '⚙️ Settings', sound: 'Sound', toLobby: '🏠 Lobby',
     schemaWarn: '⚠️ Server update needed: re-run supabase/setup.sql in the Supabase SQL Editor',
-    armory: '🎖 Armory', brassName: 'brass', lvName: l => `Rank ${l}`, lvShort: (l, b) => `🎖 Rank ${l} · 🔶 ${b} brass`,
+    armory: '🎖 Armory', brassName: 'brass', lvName: l => `Rank ${l}`,
     xpBar: (c, n) => `Next rank: ${c} / ${n} XP`,
     stats: (r, h, b, st) => `${r} runs · ${h} hits · ${b} bullseyes · best stage ${st}`,
     catSight: 'Front sight dot', catFinish: 'Rifle finish', catTracer: 'Tracer color',
@@ -341,7 +359,6 @@ const I18N = {
     rankSubLocal: 'Scores saved on this device',
     countryOther: 'Unknown',
     rankingBtn: '🌍 Leaderboard',
-    myBest: v => `Your best: ${v}`,
     back: 'Back',
     stage: 'STAGE', score: 'Score', ammo: 'Ammo', dist: 'Distance', wind: 'Wind', windNone: 'None',
     windLv: ['Light', 'Moderate', 'Strong', 'Very strong'], moving: 'Moving target',
@@ -586,7 +603,7 @@ function gameOver() {
     <div class="gain" id="gain">${L().recording}</div>
     <p class="sub" style="margin-bottom:0">${L().goStats(S.stage, best.toLocaleString(), isBest)}</p>
     <div class="sharecard" id="sharecard"></div>
-    <div class="btns"><button id="share">${L().share}</button><button class="ghost" id="go2">${L().retry}</button></div>
+    <div class="btns"><button id="share">${L().share}</button><button class="ghost" id="go2">${L().retry}</button><button class="ghost" id="lobby1">${L().toLobby}</button></div>
     <p class="sharestatus" id="sharestatus"></p>
     <form class="submit" id="sub">
       <input id="nick" maxlength="16" placeholder="${L().nickPh}" autocomplete="nickname" required>
@@ -596,7 +613,8 @@ function gameOver() {
     <p class="status" id="status">${LB.on ? L().statusOnline : L().statusLocal}</p>
     <h3>${LB.on ? L().hWorld : L().hLocal}</h3>
     ${boardHtml()}
-    <div class="btns"><button id="go">${L().retry}</button></div>`);
+    <div class="btns"><button id="go">${L().retry}</button><button class="ghost" id="lobby2">${L().toLobby}</button></div>`);
+  card.querySelectorAll('#lobby1, #lobby2').forEach(b => b.addEventListener('click', showTitle));
   const gainEl = card.querySelector('#gain');
   recordRun(S.score, S.stage, S.runBulls || 0).then(g => {
     gainEl.textContent = L().gained(g.xp.toLocaleString(), g.brass.toLocaleString()) + (g.after > g.before ? ' · ' + L().levelUp(g.after) : '');
@@ -1094,33 +1112,80 @@ const overlay = document.getElementById('overlay'), card = document.getElementBy
 // 시작·다시 도전 버튼을 누르는 그 클릭으로 마우스 잠금까지 끝내서, 게임 화면의 첫 클릭이 바로 발사되게 합니다.
 function startFromButton() { requestLock(); startGame(); }
 function showCard(html) {
+  if (!/class="lobby"/.test(html)) card.classList.remove('wide');
+  bannerEl.style.opacity = 0; bannerT = 0; // 메뉴가 열리면 게임 중 배너는 숨깁니다
   card.innerHTML = html; overlay.classList.remove('hidden');
   const go = card.querySelector('#go'); if (go) go.addEventListener('click', startFromButton);
 }
+// ── 로비: 프로필(계급·탄피·최고 기록·세계 순위) / 시작 / 랭킹 TOP 5 / 조작법 / 설정 ──
 function showTitle() {
+  const li = levelInfo(PG.xp), pct = Math.round(li.into / li.need * 100);
+  const newbie = !best && !PG.runs;
+  const card0 = card;
+  card0.classList.add('wide');
   showCard(`<button class="lang ghost" id="lang">${L().langToggle}</button>
-    <h1>BULLET</h1><div class="tag">${L().tag}</div>
-    <p class="sub">${L().sub}</p>
-    <ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
-    ${best ? `<p class="sub">${L().myBest(best.toLocaleString())}</p>` : ''}
+    <header class="lhead"><h1>BULLET</h1><div class="tag">${L().tag}</div><p class="sub">${L().sub}</p></header>
     <p class="status err" id="schemaWarn" ${schemaOld ? '' : 'hidden'}>${L().schemaWarn}</p>
-    <p class="lvline" id="lvline">${L().lvShort(levelInfo(PG.xp).lv, PG.brass.toLocaleString())}</p>
-    <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button><button class="ghost" id="armory">${L().armory}</button></div>
-    <div class="settings">
-      <label for="sens">${touchUI ? L().sensTouch : L().sens}</label>
-      <input id="sens" type="range" min="0.3" max="3" step="0.1" value="${SENS}">
-      <output id="sensV">${SENS.toFixed(1)}×</output>
-      <label class="chk"><input id="smooth" type="checkbox" ${SMOOTH ? 'checked' : ''}> ${L().smooth}</label>
+    <div class="lobby">
+      <section class="lcol">
+        <div class="rankbox" id="profile">
+          <div class="rkrow"><b id="pname">${escapeHtml(store.get('bullet.name') || '') || L().noName}</b><span class="brass" id="pbrass">🔶 ${PG.brass.toLocaleString()}</span></div>
+          <div class="rkrow sm"><span id="plv">${L().lvName(li.lv)}</span><span id="pxp">${L().xpBar(li.into.toLocaleString(), li.need.toLocaleString())}</span></div>
+          <div class="xpbar"><i id="pxpbar" style="width:${pct}%"></i></div>
+          <div class="rkrow sm"><span>${L().bestScore((best || 0).toLocaleString())}</span><span id="prank"></span></div>
+        </div>
+        <button id="go" class="bigstart">▶ ${L().start}</button>
+        <div class="btns two"><button class="ghost" id="rank">${L().rankingBtn}</button><button class="ghost" id="armory">${L().armory}</button></div>
+      </section>
+      <section class="lcol">
+        <h3 class="lh">${L().top5}</h3>
+        <ol class="board" id="board"><li><span class="empty">${L().loading}</span></li></ol>
+        <details class="fold" ${newbie ? 'open' : ''}><summary>${L().howTo}</summary><ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul></details>
+        <details class="fold"><summary>${L().settings}</summary>
+          <div class="settings">
+            <label for="sens">${touchUI ? L().sensTouch : L().sens}</label>
+            <input id="sens" type="range" min="0.3" max="3" step="0.1" value="${SENS}">
+            <output id="sensV">${SENS.toFixed(1)}×</output>
+            <label class="chk"><input id="smooth" type="checkbox" ${SMOOTH ? 'checked' : ''}> ${L().smooth}</label>
+            <label class="chk"><input id="sound" type="checkbox" ${muted ? '' : 'checked'}> ${L().sound}</label>
+          </div>
+        </details>
+      </section>
     </div>
     <p class="note"><a href="classic.html" style="color:#9fe9ff">${L().classic}</a></p>`);
   const sens = card.querySelector('#sens'), sensV = card.querySelector('#sensV');
   sens.addEventListener('input', () => { SENS = +sens.value; sensV.textContent = SENS.toFixed(1) + '×'; store.set('bullet.sens', String(SENS)); });
   card.querySelector('#smooth').addEventListener('change', e => { SMOOTH = e.target.checked; store.set('bullet.smooth', SMOOTH ? '1' : '0'); });
+  card.querySelector('#sound').addEventListener('change', e => { if (e.target.checked === muted) toggleMute(); });
   card.querySelector('#rank').addEventListener('click', showRanking);
   card.querySelector('#armory').addEventListener('click', () => showArmory());
   card.querySelector('#lang').addEventListener('click', () => {
     LANG = LANG === 'ko' ? 'en' : 'ko'; store.set('bullet.lang', LANG); document.documentElement.lang = LANG; showTitle(); applyStaticText();
   });
+  refreshLobby();
+}
+const escapeHtml = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+// 로비 숫자를 최신으로: 자산(PG)·TOP 5·내 순위. 로비가 이미 닫혔으면 아무것도 하지 않습니다.
+let lobbySeq = 0;
+async function refreshLobby() {
+  const seq = ++lobbySeq, alive = () => seq === lobbySeq && card.querySelector('#profile');
+  const li = levelInfo(PG.xp);
+  const set = (id, v) => { const el = card.querySelector(id); if (el) el.textContent = v; };
+  set('#pbrass', '🔶 ' + PG.brass.toLocaleString()); set('#plv', L().lvName(li.lv)); set('#pxp', L().xpBar(li.into.toLocaleString(), li.need.toLocaleString()));
+  const bar = card.querySelector('#pxpbar'); if (bar) bar.style.width = Math.round(li.into / li.need * 100) + '%';
+  const myName = store.get('bullet.name');
+  const board = card.querySelector('#board');
+  let rows = null;
+  try { rows = LB.on ? await LB.top() : loadLocal(); } catch (e) { if (alive()) renderBoard(board, null, null, L().loadFail + friendlyError(e)); }
+  if (rows && alive()) renderBoard(board, rows.slice(0, 5), myName);
+  if (LB.on) {
+    try {
+      const m = await LB.me(playerToken());
+      if (!alive() || !m) return;
+      if (m.name) { set('#pname', m.name); store.set('bullet.name', m.name); set('#prank', L().worldRank(Number(m.rank).toLocaleString())); }
+      else set('#prank', flag(m.country) + ' ' + countryName(m.country));
+    } catch (e) {}
+  }
 }
 function applyStaticText() {
   holdBtn.textContent = L().hold; fireBtn.textContent = L().fire;
@@ -1485,7 +1550,7 @@ makeStage(1);
 applyStaticText();
 showTitle();
 checkSchema();
-loadProgress().then(() => { const el = card.querySelector('#lvline'); if (el) el.textContent = L().lvShort(levelInfo(PG.xp).lv, PG.brass.toLocaleString()); });
+loadProgress().then(() => { if (card.querySelector('#profile')) refreshLobby(); });
 requestAnimationFrame(frame);
 })();
 </script>
