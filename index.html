@@ -203,11 +203,8 @@ const I18N = {
     pipOff: (d, up) => `예상 탄착 ${d}m ${up ? '위' : '아래'}`,
     pipShort: d => `표적 ${d}m 앞 지면에 떨어짐 ▲`,
     pipLabel: d => `표적 망원뷰 · ${d}m`,
-    share: '📤 결과 공유', shareHead: (st, sc, d) => `BULLET 🎯 ${d ? d + ' · ' : ''}스테이지 ${st} · ${sc}점`, shareRank: r => `🌍 세계 ${r}위`,
+    share: '📤 결과 공유', shareHead: (st, sc) => `BULLET 🎯 스테이지 ${st} · ${sc}점`, shareRank: r => `🌍 세계 ${r}위`,
     copied: '결과를 복사했어요! 친구에게 붙여 넣어 보세요', copyManual: '아래 글을 길게 눌러 복사하세요',
-    dailyBtn: n => `📅 오늘의 데일리 #${n}`, dailyLabel: n => `데일리 #${n}`,
-    dailySub: '오늘 하루, 전 세계가 같은 코스로 겨룹니다. 몇 번이든 도전할 수 있어요',
-    tabDaily: '📅 오늘 데일리',
     kindPlayer: '👤 개인', kindCountry: '🚩 국가 대항전',
     countryRule: '국가 점수 = 그 나라 상위 10명의 최고 기록 합계. 친구를 불러 국가 순위를 올리세요!',
     countryMeta: (n, ace) => `${n}명 참가 · 에이스 ${ace}`,
@@ -260,11 +257,8 @@ const I18N = {
     pipOff: (d, up) => `Predicted ${d} m ${up ? 'above' : 'below'}`,
     pipShort: d => `Lands ${d} m short ▲`,
     pipLabel: d => `Scope · ${d} m`,
-    share: '📤 Share result', shareHead: (st, sc, d) => `BULLET 🎯 ${d ? d + ' · ' : ''}Stage ${st} · ${sc} pts`, shareRank: r => `🌍 World #${r}`,
+    share: '📤 Share result', shareHead: (st, sc) => `BULLET 🎯 Stage ${st} · ${sc} pts`, shareRank: r => `🌍 World #${r}`,
     copied: 'Copied! Paste it anywhere to challenge friends', copyManual: 'Select the text below to copy it',
-    dailyBtn: n => `📅 Today’s Daily #${n}`, dailyLabel: n => `Daily #${n}`,
-    dailySub: 'Same course for everyone on Earth today. Retry as often as you like',
-    tabDaily: '📅 Today’s Daily',
     kindPlayer: '👤 Players', kindCountry: '🚩 Nations',
     countryRule: 'Nation score = sum of its top 10 players’ best scores. Bring friends to push your country up!',
     countryMeta: (n, ace) => `${n} ${n === '1' ? 'player' : 'players'} · ace ${ace}`,
@@ -287,7 +281,7 @@ const S = {
   state: 'title', stateT: 0, stage: 1, score: 0, streak: 0,
   ammo: 3, maxAmmo: 3, shots: 0, angle: 8, wind: 0, time: 0, ts: 1,
   target: null, bullet: null, trail: [], rings: [], particles: [], popups: [],
-  ghosts: [], ghostCur: null, marks: [], trees: [], clouds: [], history: [], lastRank: null, mode: 'normal', day: null,
+  ghosts: [], ghostCur: null, marks: [], trees: [], clouds: [], history: [], lastRank: null,
   shake: 0, flash: 0, result: null, previewLen: 30, physAcc: 0, armed: false,
 };
 window.BULLET = S; // 디버그/테스트용
@@ -300,23 +294,8 @@ function targetY(t = S.time) {
   return T.baseY + T.amp * Math.sin(T.freq * t + T.phase);
 }
 
-/* ───────────── 데일리 챌린지 ───────────── */
-// 같은 날(UTC)에는 전 세계 모두가 같은 코스를 쏩니다.
-const DAILY_EPOCH = Date.UTC(2026, 10, 4); // 데일리 #1
-const todayKey = () => new Date().toISOString().slice(0, 10);
-const dailyNo = day => Math.floor((Date.parse(day + 'T00:00:00Z') - DAILY_EPOCH) / 864e5) + 1;
-function hashStr(str) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return h >>> 0;
-}
-function mulberry32(a) {
-  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-}
-
 function makeStage(n) {
-  const rnd = S.mode === 'daily' ? mulberry32(hashStr(`bullet:${S.day}:${n}`)) : Math.random;
+  const rnd = Math.random;
   const rr = (a, b) => a + rnd() * (b - a);
   const dist = Math.min(330, 45 + n * 16 + rr(0, 18));
   const R = Math.max(0.55, 1.35 - n * 0.055);
@@ -539,10 +518,8 @@ function popup(x, y, text, color, size) {
 /* ───────────── 상태 전환 ───────────── */
 function setState(st) { S.state = st; S.stateT = 0; }
 
-function startGame(mode) {
+function startGame() {
   audio();
-  S.mode = mode === 'daily' ? 'daily' : 'normal';
-  S.day = S.mode === 'daily' ? todayKey() : null;
   S.stage = 1; S.score = 0; S.streak = 0; S.angle = 8; S.history = []; S.lastRank = null; S.lastNation = null; S.time = 0;
   S.particles = []; S.popups = [];
   makeStage(1);
@@ -590,8 +567,8 @@ function gameOver() {
   sfx.over();
   const isBest = S.score > best;
   if (isBest) { best = S.score; try { localStorage.setItem('bullet.best', String(best)); } catch (e) {} }
-  const run = { score: S.score, stage: S.stage, mode: S.mode, day: S.day };
-  const boardTab = S.mode === 'daily' ? 'daily' : 'all';
+  const run = { score: S.score, stage: S.stage };
+  const boardTab = 'all';
   saveLocal(run);
   showCard(`
     <h1>GAME OVER</h1>
@@ -609,12 +586,12 @@ function gameOver() {
     <p class="status" id="status">${LB.on ? L().statusOnline : L().statusLocal}</p>
     <h3>${LB.on ? L().hWorld : L().hLocal}</h3>
     ${boardHtml()}
-    <div class="btns"><button id="go">${L().retry}</button></div>`, S.mode);
+    <div class="btns"><button id="go">${L().retry}</button></div>`);
   fillCountries(card.querySelector('#country'));
   const sharecard = card.querySelector('#sharecard'), sharestatus = card.querySelector('#sharestatus');
   sharecard.textContent = shareText();
   card.querySelector('#share').addEventListener('click', () => shareResult(sharestatus, sharecard));
-  card.querySelector('#go2').addEventListener('click', () => startGame(run.mode));
+  card.querySelector('#go2').addEventListener('click', () => startGame());
   const nick = card.querySelector('#nick');
   nick.value = store.get('bullet.name') || '';
   const form = card.querySelector('#sub'), status = card.querySelector('#status'), send = card.querySelector('#send');
@@ -633,7 +610,7 @@ function gameOver() {
       return;
     }
     try {
-      const r = await LB.submit(name, country, run.score, run.stage, run.mode, run.day);
+      const r = await LB.submit(name, country, run.score, run.stage);
       status.className = 'status ok';
       status.textContent = L().posted(Number(r.out_rank).toLocaleString(), Number(r.out_total).toLocaleString());
       S.lastRank = Number(r.out_rank).toLocaleString();
@@ -666,14 +643,14 @@ function shareText() {
   const cells = S.history.map(ringEmoji).concat('❌');
   const rows = [];
   for (let i = 0; i < cells.length; i += 10) rows.push(cells.slice(i, i + 10).join(''));
-  const lines = [L().shareHead(S.stage, S.score.toLocaleString(), S.mode === 'daily' ? L().dailyLabel(dailyNo(S.day)) : ''), ...rows];
+  const lines = [L().shareHead(S.stage, S.score.toLocaleString()), ...rows];
   if (S.lastRank) lines.push(L().shareRank(S.lastRank) + (S.lastNation ? ' · ' + L().shareNation(flag(S.lastNation.country), S.lastNation.rank) : ''));
   lines.push(shareLink());
   return lines.join('\n');
 }
 function shareLink() {
   const base = (window.BULLET_CONFIG && window.BULLET_CONFIG.shareUrl) || 'https://hsbaldwin.github.io/bullet/';
-  return S.mode === 'daily' ? base + (base.includes('?') ? '&' : '?') + 'daily' : base;
+  return base;
 }
 async function shareResult(statusEl, previewEl) {
   const text = shareText();
@@ -724,9 +701,9 @@ const LB = (() => {
       return req('/rest/v1/rpc/country_stats', { method: 'POST',
         body: JSON.stringify({ p_mode: f.mode, p_day: f.day, p_since: f.since }) });
     },
-    async submit(name, country, score, stage, mode, day) {
+    async submit(name, country, score, stage) {
       const rows = await req('/rest/v1/rpc/submit_score', { method: 'POST',
-        body: JSON.stringify({ p_name: name, p_country: country, p_score: score, p_stage: stage, p_mode: mode, p_day: day }) });
+        body: JSON.stringify({ p_name: name, p_country: country, p_score: score, p_stage: stage }) });
       return Array.isArray(rows) ? rows[0] : rows;
     },
   };
@@ -749,7 +726,7 @@ function saveLocal(run, named) {
     const list = loadLocal();
     run.localId = run.localId || Date.now();
     list.push({ id: run.localId, name: run.name, country: run.country, score: run.score, stage: run.stage,
-      mode: run.mode, day: run.day, created_at: new Date().toISOString() });
+      created_at: new Date().toISOString() });
     list.sort((a, b) => b.score - a.score);
     store.set('bullet.local', JSON.stringify(list.slice(0, 200)));
   }
@@ -785,14 +762,13 @@ function fillCountries(sel) {
 
 function boardHtml() {
   return `<div class="tabs kind" id="kinds"><button data-k="player">${L().kindPlayer}</button><button data-k="country">${L().kindCountry}</button></div>
-    <div class="tabs" id="tabs"><button data-p="daily">${L().tabDaily}</button>${LB.on ? `<button data-p="day">${L().tabDay}</button><button data-p="week">${L().tabWeek}</button>` : ''}<button data-p="all">${L().tabAll}</button></div>
+    <div class="tabs" id="tabs">${LB.on ? `<button data-p="day">${L().tabDay}</button><button data-p="week">${L().tabWeek}</button>` : ''}<button data-p="all">${L().tabAll}</button></div>
     <p class="note" id="countryRule" hidden>${L().countryRule}</p>
     <ol class="board" id="board"><li><span class="empty">${L().loading}</span></li></ol>
     ${LB.on ? '' : `<p class="note">${L().localNote}</p>`}`;
 }
 let boardPeriod = 'all', boardHighlight = null, boardKind = 'player';
 function boardFilter(period) {
-  if (period === 'daily') return { mode: 'daily', day: todayKey(), since: null };
   const since = period === 'all' ? null : new Date(Date.now() - (period === 'day' ? 1 : 7) * 864e5).toISOString();
   return { mode: 'normal', day: null, since };
 }
@@ -800,8 +776,7 @@ function boardFilter(period) {
 function localTop(f) {
   const bestBy = new Map();
   for (const r of loadLocal()) {
-    if ((r.mode || 'normal') !== f.mode) continue;
-    if (f.mode === 'daily' && r.day !== f.day) continue;
+    if ((r.mode || 'normal') !== 'normal') continue; // 이전 버전의 데일리 기록은 제외
     if (f.since && r.created_at < f.since) continue;
     const k = r.name + '|' + r.country, cur = bestBy.get(k);
     if (!cur || r.score > cur.score) bestBy.set(k, r);
@@ -888,7 +863,7 @@ function showRanking() {
     <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="back">${L().back}</button></div>`);
   card.querySelector('#back').addEventListener('click', showTitle);
   wireBoard();
-  loadBoard(DAILY_LINK ? 'daily' : 'all', null);
+  loadBoard('all', null);
 }
 
 /* ───────────── 입력 ───────────── */
@@ -921,7 +896,7 @@ addEventListener('keydown', e => {
   if (e.target && e.target.closest && e.target.closest('input, select, textarea, button')) return;
   if (k === 'm' || k === 'M') { toggleMute(); return; }
   if (S.state === 'gameover' && S.stateT < 1.5) return; // 마지막 발사 직후 키 입력으로 결과 화면이 넘어가지 않게
-  if (S.state === 'title' || S.state === 'gameover') { if (k === 'Enter' || k === ' ') { e.preventDefault(); startGame(S.state === 'gameover' ? S.mode : (DAILY_LINK ? 'daily' : 'normal')); } return; }
+  if (S.state === 'title' || S.state === 'gameover') { if (k === 'Enter' || k === ' ') { e.preventDefault(); startGame(); } return; }
   if (S.state === 'intro' && (k === ' ' || k === 'Enter')) { e.preventDefault(); setState('aim'); return; }
   if (S.state === 'result' && (k === ' ' || k === 'Enter') && S.stateT > 0.5) { e.preventDefault(); afterResult(); return; }
   if (S.state !== 'aim') return;
@@ -937,11 +912,11 @@ muteBtn.addEventListener('pointerdown', e => e.stopPropagation());
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
-function showCard(html, mode = 'normal') {
+function showCard(html) {
   card.innerHTML = html;
   overlay.classList.remove('hidden');
   const btn = card.querySelector('#go');
-  if (btn) btn.addEventListener('click', () => startGame(mode));
+  if (btn) btn.addEventListener('click', () => startGame());
 }
 
 /* ───────────── 업데이트 ───────────── */
@@ -1454,7 +1429,6 @@ function updateHud() {
   const w = S.wind;
   const windStr = Math.abs(w) < 0.05 ? L().windNone : `${w > 0 ? '→' : '←'} ${Math.abs(w).toFixed(1)} m/s`;
   const html =
-    (S.mode === 'daily' ? `<div class="row"><span>📅 DAILY</span><b>#${dailyNo(S.day)}</b></div>` : '') +
     `<div class="row"><span>STAGE</span><b>${S.stage}</b></div>` +
     `<div class="row"><span>${L().hudScore}</span><b>${S.score.toLocaleString()}</b></div>` +
     `<div class="row"><span>${L().hudAmmo}</span><span id="ammo">${ammo}</span></div>` +
@@ -1489,8 +1463,6 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-let DAILY_LINK = false;
-try { DAILY_LINK = new URLSearchParams(location.search).has('daily'); } catch (e) {}
 makeStage(1);
 cam.x = S.target.x * 0.5; cam.z = baseZ() * 0.9; cam.y = 0.3 * H / cam.z;
 function showTitle() {
@@ -1500,14 +1472,8 @@ showCard(`
   <p class="sub">${L().tagline}</p>
   <ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
   ${best ? `<p class="sub">${L().myBest(best.toLocaleString())}</p>` : ''}
-  <div class="btns">
-    ${DAILY_LINK ? `<button id="daily">${L().dailyBtn(dailyNo(todayKey()))}</button><button class="ghost" id="go">${L().start}</button>`
-                 : `<button id="go">${L().start}</button><button class="ghost" id="daily">${L().dailyBtn(dailyNo(todayKey()))}</button>`}
-  </div>
-  <p class="note" style="margin:10px 0 12px">${L().dailySub}</p>
-  <div class="btns"><button class="ghost" id="rank">${L().rankingBtn}</button></div>`);
+  <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button></div>`);
 card.querySelector('#rank').addEventListener('click', showRanking);
-card.querySelector('#daily').addEventListener('click', () => startGame('daily'));
 card.querySelector('#lang').addEventListener('click', () => {
   LANG = LANG === 'ko' ? 'en' : 'ko';
   store.set('bullet.lang', LANG);
