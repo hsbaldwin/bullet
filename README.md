@@ -25,3 +25,38 @@
 - 단계별 난이도: 거리 증가 → 바람(2스테이지~) → 높은 표적 → 움직이는 표적(4스테이지~) → 표적 축소
 - 점수: 링 점수(1~10) × 10 + 거리 보너스, 첫 발 명중 ×1.5, 연속 원샷 추가 점수
 - WebAudio로 합성한 효과음, 최고 기록 로컬 저장
+
+## 🌍 세계 랭킹
+
+게임 오버 화면에서 닉네임과 국가를 정해 기록을 올리면, 전 세계 플레이어와 순위를 겨룹니다.
+랭킹은 24시간, 7일, 전체 기간으로 볼 수 있고, 타이틀 화면의 **랭킹 보기**에서도 열 수 있습니다.
+서버를 연결하기 전에는 이 기기 안에서만 기록이 저장됩니다.
+
+### 서버 연결 (무료, 약 5분)
+
+1. [supabase.com](https://supabase.com)에 가입하고 **New project**를 만듭니다. 지역은 플레이어가 많은 곳 근처를 고르세요.
+2. 왼쪽 메뉴의 **SQL Editor**에서 [`supabase/setup.sql`](supabase/setup.sql) 내용을 전부 붙여 넣고 **Run**을 누릅니다.
+3. **Project Settings → API Keys**(또는 Data API)에서 **Project URL**과 **공개 키**(`sb_publishable_…` 또는 `anon` key)를 복사합니다.
+   `service_role`/`secret` 키는 절대 넣지 마세요.
+4. `index.html` 위쪽의 `BULLET_CONFIG`에 두 값을 넣습니다.
+   ```js
+   window.BULLET_CONFIG = window.BULLET_CONFIG || {
+     supabaseUrl: 'https://xxxx.supabase.co',
+     supabaseAnonKey: 'sb_publishable_xxxx',
+   };
+   ```
+   공개 키는 브라우저에 노출되도록 만들어진 키라서 저장소에 올려도 됩니다. 데이터는 아래 규칙으로 보호됩니다.
+
+### 게임을 인터넷에 공개 (GitHub Pages)
+
+저장소의 **Settings → Pages → Build and deployment**에서 Source를 **Deploy from a branch**로, 브랜치를 게임이 있는 브랜치와 `/ (root)`로 정하고 저장합니다.
+1~2분 뒤 `https://<사용자명>.github.io/bullet/` 주소로 누구나 접속해 플레이할 수 있습니다.
+
+### 서버의 보호 규칙
+
+- 누구나 랭킹을 읽을 수 있지만, 테이블에 직접 쓰거나 고칠 수는 없습니다. 기록은 `submit_score` 함수로만 추가됩니다.
+- 닉네임은 1~16자로 공백을 정리하고, 잘못된 국가 코드는 "기타"로 바꿉니다.
+- 도달한 스테이지로 낼 수 있는 최대 점수를 넘는 기록은 거부합니다.
+- 같은 닉네임으로 20초 안에 다시 등록할 수 없습니다.
+- 게임이 브라우저에서 돌아가므로, 개발자 도구를 다루는 사람은 상한 이하의 가짜 점수를 보낼 수 있습니다.
+  이상한 기록은 Supabase **Table Editor → scores**에서 지우면 됩니다.

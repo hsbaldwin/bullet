@@ -42,6 +42,34 @@
   .card button { pointer-events: auto; background: var(--accent); color: #1b1300; border: 0; border-radius: 999px;
     padding: 12px 34px; font-size: 17px; font-weight: 800; cursor: pointer; letter-spacing: .04em; }
   .card button:hover { filter: brightness(1.08); }
+  .card { max-height: calc(100% - 32px); overflow-y: auto; touch-action: pan-y; }
+  .card .btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .card button.ghost { background: rgba(255,255,255,.12); color: #fff; }
+  .card button:disabled { opacity: .5; cursor: default; filter: none; }
+  .card h3 { margin: 18px 0 8px; font-size: 15px; letter-spacing: .04em; }
+  .submit { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 14px 0 6px; text-align: left; }
+  .submit input, .submit select { pointer-events: auto; user-select: text; -webkit-user-select: text; min-width: 0;
+    background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.2); border-radius: 10px;
+    padding: 10px 12px; font: inherit; font-size: 15px; }
+  .submit select { grid-column: 1 / -1; }
+  .submit select option { background: #141c30; }
+  .submit button { padding: 10px 18px; font-size: 15px; }
+  .status { min-height: 1.4em; font-size: 13px; margin: 4px 0 0; opacity: .9; }
+  .status.err { color: #ff9b9b; } .status.ok { color: #7dffa8; }
+  .tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+  .tabs button { background: rgba(255,255,255,.1); color: #fff; padding: 6px 12px; font-size: 13px; font-weight: 600; }
+  .tabs button.on { background: var(--accent); color: #1b1300; }
+  .board { list-style: none; margin: 0 0 16px; padding: 0; text-align: left; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .board li { display: grid; grid-template-columns: 2.2em 2.6em 1fr auto; gap: 8px; align-items: center;
+    padding: 7px 8px; border-radius: 8px; }
+  .board li:nth-child(odd) { background: rgba(255,255,255,.04); }
+  .board li.me { background: rgba(255,207,63,.22); outline: 1px solid rgba(255,207,63,.6); }
+  .board .rk { font-weight: 800; text-align: center; }
+  .board .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .board .nm small { opacity: .6; margin-left: 6px; }
+  .board .sc { font-weight: 800; color: var(--accent); }
+  .board .empty { display: block; text-align: center; opacity: .7; padding: 14px; }
+  .note { font-size: 12px; opacity: .65; margin: 0 0 14px; }
   kbd { background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 5px; font-size: 12px; }
 </style>
 </head>
@@ -59,6 +87,15 @@
   <div class="card" id="card"></div>
 </div>
 
+<script>
+// ── 세계 랭킹 서버 설정 ──
+// Supabase 프로젝트의 Project URL과 공개 키(publishable 또는 anon key)를 넣으면 세계 랭킹이 켜집니다. (README 참고)
+// 비워 두면 이 기기에만 기록이 저장됩니다.
+window.BULLET_CONFIG = window.BULLET_CONFIG || {
+  supabaseUrl: '',
+  supabaseAnonKey: '',
+};
+</script>
 <script>
 (() => {
 'use strict';
@@ -380,13 +417,194 @@ function gameOver() {
   sfx.over();
   const isBest = S.score > best;
   if (isBest) { best = S.score; try { localStorage.setItem('bullet.best', String(best)); } catch (e) {} }
+  const run = { score: S.score, stage: S.stage };
+  saveLocal(run);
   showCard(`
     <h1>GAME OVER</h1>
-    <p class="sub">탄약을 모두 소진했습니다</p>
-    <div>최종 점수</div>
+    <p class="sub" style="margin-bottom:6px">탄약을 모두 소진했습니다</p>
     <div class="big">${S.score.toLocaleString()}</div>
-    <p class="sub">도달 스테이지 ${S.stage} · 최고 기록 ${best.toLocaleString()}${isBest ? ' 🎉 신기록!' : ''}</p>
-    <button id="go">다시 도전</button>`);
+    <p class="sub" style="margin-bottom:0">도달 스테이지 ${S.stage} · 내 최고 기록 ${best.toLocaleString()}${isBest ? ' 🎉 신기록!' : ''}</p>
+    <form class="submit" id="sub">
+      <input id="nick" maxlength="16" placeholder="닉네임 (최대 16자)" autocomplete="nickname" required>
+      <button id="send" type="submit">기록 등록</button>
+      <select id="country" aria-label="국가"></select>
+    </form>
+    <p class="status" id="status">${LB.on ? '닉네임과 국가를 정하고 세계 랭킹에 기록을 올리세요' : '이 기기의 랭킹에 기록됩니다'}</p>
+    <h3>${LB.on ? '🌍 세계 랭킹' : '📱 이 기기 랭킹'}</h3>
+    ${boardHtml()}
+    <div class="btns"><button id="go">다시 도전</button></div>`);
+  fillCountries(card.querySelector('#country'));
+  const nick = card.querySelector('#nick');
+  nick.value = store.get('bullet.name') || '';
+  const form = card.querySelector('#sub'), status = card.querySelector('#status'), send = card.querySelector('#send');
+  if (S.score <= 0) { send.disabled = true; status.textContent = '0점 기록은 등록할 수 없어요'; }
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = nick.value.replace(/\s+/g, ' ').trim();
+    const country = card.querySelector('#country').value;
+    if (!name) { status.className = 'status err'; status.textContent = '닉네임을 입력하세요'; return; }
+    store.set('bullet.name', name); store.set('bullet.country', country);
+    send.disabled = true; status.className = 'status'; status.textContent = '등록 중…';
+    if (!LB.on) {
+      run.name = name; run.country = country; saveLocal(run, true);
+      status.className = 'status ok'; status.textContent = '이 기기 랭킹에 저장했어요';
+      loadBoard('all', run.localId);
+      return;
+    }
+    try {
+      const r = await LB.submit(name, country, run.score, run.stage);
+      status.className = 'status ok';
+      status.textContent = `등록 완료! 세계 ${Number(r.out_rank).toLocaleString()}위 (전체 ${Number(r.out_total).toLocaleString()}개 기록 중)`;
+      loadBoard('all', r.out_id);
+    } catch (err) {
+      send.disabled = false;
+      status.className = 'status err';
+      status.textContent = '등록하지 못했어요: ' + friendlyError(err);
+    }
+  });
+  wireBoard();
+  loadBoard('all');
+}
+
+/* ───────────── 랭킹 ───────────── */
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+const LB = (() => {
+  const cfg = window.BULLET_CONFIG || {};
+  const url = String(cfg.supabaseUrl || '').replace(/\/+$/, '');
+  const key = String(cfg.supabaseAnonKey || '');
+  const on = !!(url && key);
+  // 기존 anon key(JWT)는 Authorization에도 넣고, 새 publishable key(sb_publishable_…)는 apikey 헤더만 씁니다.
+  const headers = () => Object.assign({ apikey: key, 'Content-Type': 'application/json' },
+    key.startsWith('eyJ') ? { Authorization: 'Bearer ' + key } : {});
+  async function req(path, opts = {}) {
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 9000);
+    try {
+      const r = await fetch(url + path, Object.assign({ headers: headers(), signal: ctl.signal }, opts));
+      const body = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((body && (body.message || body.hint)) || ('HTTP ' + r.status));
+      return body;
+    } finally { clearTimeout(tm); }
+  }
+  return {
+    on,
+    async top(period) {
+      let q = '/rest/v1/scores?select=id,name,country,score,stage,created_at&order=score.desc,created_at.asc&limit=50';
+      if (period !== 'all') {
+        const since = new Date(Date.now() - (period === 'day' ? 1 : 7) * 864e5).toISOString();
+        q += '&created_at=gte.' + encodeURIComponent(since);
+      }
+      return req(q);
+    },
+    async submit(name, country, score, stage) {
+      const rows = await req('/rest/v1/rpc/submit_score', { method: 'POST',
+        body: JSON.stringify({ p_name: name, p_country: country, p_score: score, p_stage: stage }) });
+      return Array.isArray(rows) ? rows[0] : rows;
+    },
+  };
+})();
+
+function friendlyError(err) {
+  const m = String(err && err.message || err);
+  if (/abort/i.test(m)) return '서버 응답이 없어요. 잠시 후 다시 시도하세요';
+  if (/too many/i.test(m)) return '잠시 후 다시 시도하세요 (연속 등록 제한)';
+  if (/implausible/i.test(m)) return '비정상적인 점수로 판단되었어요';
+  if (/invalid name/i.test(m)) return '닉네임은 1~16자여야 해요';
+  if (/fetch|network/i.test(m)) return '서버에 연결할 수 없어요';
+  return m;
+}
+
+function loadLocal() { try { return JSON.parse(store.get('bullet.local') || '[]'); } catch (e) { return []; } }
+function saveLocal(run, named) {
+  if (named) {
+    const list = loadLocal();
+    run.localId = run.localId || Date.now();
+    list.push({ id: run.localId, name: run.name, country: run.country, score: run.score, stage: run.stage, created_at: new Date().toISOString() });
+    list.sort((a, b) => b.score - a.score);
+    store.set('bullet.local', JSON.stringify(list.slice(0, 50)));
+  }
+}
+
+const COUNTRY_CODES = ('AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ ' +
+  'CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE ' +
+  'GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP ' +
+  'KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF ' +
+  'NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN ' +
+  'SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW').split(' ');
+const flag = c => /^[A-Z]{2}$/.test(c) && c !== 'UN' ? String.fromCodePoint(...[...c].map(ch => 127397 + ch.charCodeAt(0))) : '🌐';
+let regionNames = null;
+try { regionNames = new Intl.DisplayNames(['ko'], { type: 'region' }); } catch (e) {}
+const countryName = c => { if (c === 'UN') return '기타 / 비공개'; try { return (regionNames && regionNames.of(c)) || c; } catch (e) { return c; } };
+function guessCountry() {
+  const saved = store.get('bullet.country');
+  if (saved) return saved;
+  const langs = navigator.languages || [navigator.language || ''];
+  for (const l of langs) { const m = /[-_]([A-Z]{2})\b/i.exec(l); if (m && COUNTRY_CODES.includes(m[1].toUpperCase())) return m[1].toUpperCase(); }
+  const byLang = { ko: 'KR', ja: 'JP', zh: 'CN', en: 'US', de: 'DE', fr: 'FR', es: 'ES', it: 'IT', pt: 'BR', ru: 'RU', vi: 'VN', th: 'TH', id: 'ID' };
+  return byLang[(langs[0] || '').slice(0, 2)] || 'UN';
+}
+function fillCountries(sel) {
+  const list = COUNTRY_CODES.map(c => [c, countryName(c)]).sort((a, b) => a[1].localeCompare(b[1], 'ko'));
+  list.push(['UN', countryName('UN')]);
+  for (const [c, n] of list) { const o = document.createElement('option'); o.value = c; o.textContent = `${flag(c)} ${n}`; sel.appendChild(o); }
+  sel.value = guessCountry();
+}
+
+function boardHtml() {
+  return `${LB.on ? `<div class="tabs" id="tabs"><button data-p="day">24시간</button><button data-p="week">7일</button><button data-p="all" class="on">전체</button></div>` : ''}
+    <ol class="board" id="board"><li><span class="empty">불러오는 중…</span></li></ol>
+    ${LB.on ? '' : '<p class="note">세계 랭킹 서버가 아직 연결되지 않아 이 기기의 기록만 보여요</p>'}`;
+}
+let boardPeriod = 'all', boardHighlight = null;
+function wireBoard() {
+  const tabs = card.querySelector('#tabs');
+  if (!tabs) return;
+  tabs.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    loadBoard(b.dataset.p, boardHighlight);
+  });
+}
+async function loadBoard(period, highlight) {
+  boardPeriod = period; if (highlight !== undefined) boardHighlight = highlight;
+  const board = card.querySelector('#board'); if (!board) return;
+  card.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.p === period));
+  let rows;
+  if (LB.on) {
+    try { rows = await LB.top(period); }
+    catch (err) { renderBoard(board, null, '랭킹을 불러오지 못했어요: ' + friendlyError(err)); return; }
+  } else rows = loadLocal().slice(0, 50);
+  if (boardPeriod !== period) return;
+  renderBoard(board, rows);
+}
+function renderBoard(board, rows, errMsg) {
+  board.textContent = '';
+  if (!rows || !rows.length) {
+    const li = document.createElement('li'); const sp = document.createElement('span'); sp.className = 'empty';
+    sp.textContent = errMsg || '아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!';
+    li.appendChild(sp); board.appendChild(li); return;
+  }
+  rows.forEach((r, i) => {
+    const li = document.createElement('li');
+    if (boardHighlight != null && r.id === boardHighlight) li.className = 'me';
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = ['🥇', '🥈', '🥉'][i] || String(i + 1);
+    const fl = document.createElement('span'); fl.textContent = flag(r.country); fl.title = countryName(r.country);
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name;
+    const st = document.createElement('small'); st.textContent = `ST.${r.stage}`; nm.appendChild(st);
+    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = Number(r.score).toLocaleString();
+    li.append(rk, fl, nm, sc); board.appendChild(li);
+  });
+  const me = board.querySelector('.me'); if (me) me.scrollIntoView({ block: 'nearest' });
+}
+function showRanking() {
+  showCard(`<h1 style="font-size:30px">🌍 랭킹</h1>
+    <p class="sub">${LB.on ? '전 세계 사수들의 최고 기록' : '이 기기에서 등록한 기록'}</p>
+    ${boardHtml()}
+    <div class="btns"><button id="go">사격 시작</button><button class="ghost" id="back">뒤로</button></div>`);
+  card.querySelector('#back').addEventListener('click', showTitle);
+  wireBoard();
+  loadBoard('all', null);
 }
 
 /* ───────────── 입력 ───────────── */
@@ -416,6 +634,7 @@ addEventListener('pointerup', () => {
 });
 addEventListener('keydown', e => {
   const k = e.key;
+  if (e.target && e.target.closest && e.target.closest('input, select, textarea, button')) return;
   if (k === 'm' || k === 'M') { toggleMute(); return; }
   if (S.state === 'title' || S.state === 'gameover') { if (k === 'Enter' || k === ' ') { e.preventDefault(); startGame(); } return; }
   if (S.state === 'intro' && (k === ' ' || k === 'Enter')) { e.preventDefault(); setState('aim'); return; }
@@ -436,8 +655,8 @@ const card = document.getElementById('card');
 function showCard(html) {
   card.innerHTML = html;
   overlay.classList.remove('hidden');
-  const btn = card.querySelector('button');
-  btn.addEventListener('click', startGame);
+  const btn = card.querySelector('#go');
+  if (btn) btn.addEventListener('click', startGame);
 }
 
 /* ───────────── 업데이트 ───────────── */
@@ -986,6 +1205,7 @@ function frame(now) {
 
 makeStage(1);
 cam.x = S.target.x * 0.5; cam.z = baseZ() * 0.9; cam.y = 0.3 * H / cam.z;
+function showTitle() {
 showCard(`
   <h1>BULLET</h1>
   <p class="sub">허공을 가르는 단 한 발 — 표적의 중심을 꿰뚫어라</p>
@@ -996,8 +1216,11 @@ showCard(`
     <li>점선은 직전 탄도, 오른쪽 위 망원뷰로 탄착을 확인하세요</li>
     <li>첫 발 명중 시 ×1.5 보너스, 연속 원샷은 추가 점수!</li>
   </ul>
-  ${best ? `<p class="sub">최고 기록 ${best.toLocaleString()}</p>` : ''}
-  <button id="go">사격 시작</button>`);
+  ${best ? `<p class="sub">내 최고 기록 ${best.toLocaleString()}</p>` : ''}
+  <div class="btns"><button id="go">사격 시작</button><button class="ghost" id="rank">🌍 랭킹 보기</button></div>`);
+card.querySelector('#rank').addEventListener('click', showRanking);
+}
+showTitle();
 requestAnimationFrame(frame);
 })();
 </script>
