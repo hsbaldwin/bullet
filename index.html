@@ -1,9 +1,26 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Bullet — 허공을 가르는 한 발</title>
+<title>BULLET — One Shot Across the Sky</title>
+<meta name="description" content="Read the wind and gravity, send one bullet across the sky into the bullseye, and climb the world leaderboard. Free browser game, no install. · 바람과 중력을 읽고 한 발로 세계 랭킹에 도전하세요.">
+<link rel="canonical" href="https://hsbaldwin.github.io/bullet/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BULLET">
+<meta property="og:title" content="BULLET — One shot across the sky">
+<meta property="og:description" content="Wind. Gravity. One shot. Hit the bullseye and climb the world leaderboard. · 바람과 중력을 읽고 단 한 발로 세계 랭킹에 도전하세요.">
+<meta property="og:url" content="https://hsbaldwin.github.io/bullet/">
+<meta property="og:image" content="https://hsbaldwin.github.io/bullet/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A bullet streaking through a sunset sky into the center of an archery target">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BULLET — One shot across the sky">
+<meta name="twitter:description" content="Wind. Gravity. One shot. Climb the world leaderboard.">
+<meta name="twitter:image" content="https://hsbaldwin.github.io/bullet/og.png">
+<meta name="theme-color" content="#0b1622">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23f4f1ea'/%3E%3Ccircle cx='16' cy='16' r='12' fill='%23262626'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%231d6fd1'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23e63946'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23ffd23f'/%3E%3C/svg%3E">
 <style>
   :root { --panel: rgba(12, 18, 32, .58); --accent: #ffcf3f; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1622; color: #fff;
@@ -70,6 +87,9 @@
   .board .sc { font-weight: 800; color: var(--accent); }
   .board .empty { display: block; text-align: center; opacity: .7; padding: 14px; }
   .note { font-size: 12px; opacity: .65; margin: 0 0 14px; }
+  .lang { position: absolute; top: 12px; right: 12px; }
+  .card { position: relative; }
+  .card button.lang { padding: 5px 10px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.12); color: #fff; }
   kbd { background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 5px; font-size: 12px; }
 </style>
 </head>
@@ -80,7 +100,7 @@
   <div id="info" class="panel"></div>
   <div id="angle" class="panel"></div>
   <div id="banner"><h2></h2><p></p></div>
-  <button id="mute" title="소리 켜기/끄기 (M)">🔊</button>
+  <button id="mute" title="Sound (M)">🔊</button>
 </div>
 
 <div id="overlay">
@@ -127,6 +147,113 @@ const damp = (a, b, rate, dt) => lerp(a, b, 1 - Math.exp(-rate * dt));
 
 let best = 0;
 try { best = +localStorage.getItem('bullet.best') || 0; } catch (e) {}
+
+/* ───────────── 다국어 (한국어 / English) ───────────── */
+const I18N = {
+  ko: {
+    tagline: '허공을 가르는 단 한 발 — 표적의 중심을 꿰뚫어라',
+    rules: [
+      '<b>조준</b>: 마우스를 움직여 각도를 맞추고 <b>클릭</b>으로 발사<br>(모바일: 드래그 후 손을 떼면 발사, 키보드 <kbd>↑</kbd><kbd>↓</kbd> 미세조정 · <kbd>Space</kbd> 발사)',
+      '탄환은 <b>중력</b>으로 떨어지고 <b>바람</b>에 밀립니다',
+      '스테이지마다 탄 3발. 명중하면 다음 스테이지, 모두 놓치면 게임 오버',
+      '오른쪽 위 망원뷰의 <b>예상 탄착 표시</b>로 조준하세요',
+      '첫 발 명중 시 ×1.5 보너스, 연속 원샷은 추가 점수!',
+    ],
+    myBest: v => `내 최고 기록 ${v}`,
+    start: '사격 시작', rankingBtn: '🌍 랭킹 보기', langToggle: 'English',
+    bullseye: '불스아이!', great: '훌륭해요!', hit: '명중!', close: '아슬아슬!',
+    ringPts: (r, p, f) => `${r}점 링 · +${p}${f ? ' (원샷 ×1.5)' : ''}`,
+    streak: (n, b) => `연속 원샷 ${n}회! +${b}`,
+    miss: '빗나감',
+    missOver: (d, up) => `표적 중심보다 ${d}m ${up ? '위' : '아래'}로 지나감`,
+    missShort: d => `표적 ${d}m 앞 지면에 착탄`,
+    hintTiming: '각도는 거의 맞아요. 표적 움직임에 맞춰 타이밍을 조절해 보세요',
+    hintAdj: (deg, up) => `힌트: 각도를 약 ${deg}° ${up ? '올려' : '내려'} 보세요`,
+    introS1: '바람 없음 · 정지 표적', introWind: '바람이 불기 시작합니다', introMoving: '표적이 움직입니다!',
+    introInfo: (d, w) => `거리 ${d}m · 바람 ${w}m/s`,
+    goSub: '탄약을 모두 소진했습니다',
+    goStats: (st, b, n) => `도달 스테이지 ${st} · 내 최고 기록 ${b}${n ? ' 🎉 신기록!' : ''}`,
+    nickPh: '닉네임 (최대 16자)', submit: '기록 등록', country: '국가',
+    statusOnline: '닉네임과 국가를 정하고 세계 랭킹에 기록을 올리세요', statusLocal: '이 기기의 랭킹에 기록됩니다',
+    hWorld: '🌍 세계 랭킹', hLocal: '📱 이 기기 랭킹', retry: '다시 도전',
+    zero: '0점 기록은 등록할 수 없어요', needNick: '닉네임을 입력하세요', sending: '등록 중…',
+    savedLocal: '이 기기 랭킹에 저장했어요',
+    posted: (r, t) => `등록 완료! 세계 ${r}위 (${t}명 중)`,
+    postFail: '등록하지 못했어요: ', loadFail: '랭킹을 불러오지 못했어요: ',
+    errTimeout: '서버 응답이 없어요. 잠시 후 다시 시도하세요', errRate: '잠시 후 다시 시도하세요 (연속 등록 제한)',
+    errImplausible: '비정상적인 점수로 판단되었어요', errName: '닉네임은 1~16자여야 해요',
+    errNet: '서버에 연결할 수 없어요', errOutdated: '서버 설정이 최신이 아니에요 (setup.sql 다시 실행 필요)',
+    tabDay: '24시간', tabWeek: '7일', tabAll: '전체', loading: '불러오는 중…',
+    localNote: '세계 랭킹 서버가 아직 연결되지 않아 이 기기의 기록만 보여요',
+    empty: '아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!',
+    rankTitle: '🌍 랭킹', rankSubOnline: '전 세계 사수들의 최고 기록', rankSubLocal: '이 기기에서 등록한 기록',
+    back: '뒤로', countryOther: '기타 / 비공개',
+    hudScore: '점수', hudAmmo: '탄약', hudDist: '거리', hudHeight: '표적 높이', hudWind: '바람', windNone: '없음',
+    pred: (inside, d, up, t) => `예상 탄착: ${inside ? '표적 안 · ' : ''}중심보다 ${d}m ${up ? '위' : '아래'} · ${t}초 후 도달`,
+    predMoving: '표적이 움직여요. 도달 시간 동안의 이동을 고려하세요',
+    predShort: d => `예상 탄착: 표적 ${d}m 앞 지면. 각도를 올리세요`,
+    ctrlTouch: '드래그로 조준 · 손을 떼면 발사', ctrlMouse: '마우스 조준 · 클릭 발사 · ↑↓ 미세조정',
+    pipOff: (d, up) => `예상 탄착 ${d}m ${up ? '위' : '아래'}`,
+    pipShort: d => `표적 ${d}m 앞 지면에 떨어짐 ▲`,
+    pipLabel: d => `표적 망원뷰 · ${d}m`,
+  },
+  en: {
+    tagline: 'One shot across the sky. Hit dead center.',
+    rules: [
+      '<b>Aim</b>: move the mouse to set the angle, <b>click</b> to fire<br>(Mobile: drag, release to fire · Keyboard <kbd>↑</kbd><kbd>↓</kbd> fine-tune · <kbd>Space</kbd> fire)',
+      'Bullets drop with <b>gravity</b> and drift with the <b>wind</b>',
+      '3 rounds per stage. Hit to advance; miss all three and it’s game over',
+      'Line up the <b>predicted impact marker</b> in the scope (top right)',
+      'First-shot hits score ×1.5, and one-shot streaks earn bonus points',
+    ],
+    myBest: v => `Your best: ${v}`,
+    start: 'Start', rankingBtn: '🌍 Leaderboard', langToggle: '한국어',
+    bullseye: 'BULLSEYE!', great: 'Great shot!', hit: 'Hit!', close: 'Close call!',
+    ringPts: (r, p, f) => `Ring ${r} · +${p}${f ? ' (one-shot ×1.5)' : ''}`,
+    streak: (n, b) => `${n} one-shots in a row! +${b}`,
+    miss: 'Miss',
+    missOver: (d, up) => `Passed ${d} m ${up ? 'above' : 'below'} center`,
+    missShort: d => `Hit the ground ${d} m short`,
+    hintTiming: 'Your angle is right. Time the shot to the target’s movement',
+    hintAdj: (deg, up) => `Hint: ${up ? 'raise' : 'lower'} your angle by about ${deg}°`,
+    introS1: 'No wind · still target', introWind: 'The wind is picking up', introMoving: 'The target is moving!',
+    introInfo: (d, w) => `${d} m · wind ${w} m/s`,
+    goSub: 'Out of ammo',
+    goStats: (st, b, n) => `Reached stage ${st} · Best ${b}${n ? ' 🎉 New record!' : ''}`,
+    nickPh: 'Nickname (max 16)', submit: 'Post score', country: 'Country',
+    statusOnline: 'Pick a nickname and country to post your score', statusLocal: 'Scores are saved on this device',
+    hWorld: '🌍 World ranking', hLocal: '📱 This device', retry: 'Play again',
+    zero: 'A score of 0 can’t be posted', needNick: 'Enter a nickname', sending: 'Posting…',
+    savedLocal: 'Saved on this device',
+    posted: (r, t) => `Posted! World #${r} of ${t} players`,
+    postFail: 'Couldn’t post: ', loadFail: 'Couldn’t load the leaderboard: ',
+    errTimeout: 'The server didn’t answer. Try again shortly', errRate: 'Too fast. Try again in a few seconds',
+    errImplausible: 'That score looks invalid', errName: 'Nicknames must be 1–16 characters',
+    errNet: 'Can’t reach the server', errOutdated: 'The server setup is out of date (re-run setup.sql)',
+    tabDay: '24h', tabWeek: '7 days', tabAll: 'All time', loading: 'Loading…',
+    localNote: 'No leaderboard server is connected, so only this device’s scores are shown',
+    empty: 'No scores yet. Be the first!',
+    rankTitle: '🌍 Leaderboard', rankSubOnline: 'Best shooters around the world', rankSubLocal: 'Scores saved on this device',
+    back: 'Back', countryOther: 'Other / hidden',
+    hudScore: 'Score', hudAmmo: 'Ammo', hudDist: 'Distance', hudHeight: 'Target height', hudWind: 'Wind', windNone: 'None',
+    pred: (inside, d, up, t) => `Predicted: ${inside ? 'on target · ' : ''}${d} m ${up ? 'above' : 'below'} center · arrives in ${t}s`,
+    predMoving: 'Moving target: lead it by the flight time',
+    predShort: d => `Predicted: lands ${d} m short. Raise your angle`,
+    ctrlTouch: 'Drag to aim · release to fire', ctrlMouse: 'Mouse to aim · click to fire · ↑↓ fine-tune',
+    pipOff: (d, up) => `Predicted ${d} m ${up ? 'above' : 'below'}`,
+    pipShort: d => `Lands ${d} m short ▲`,
+    pipLabel: d => `Scope · ${d} m`,
+  },
+};
+function detectLang() {
+  try { const q = new URLSearchParams(location.search).get('lang'); if (q === 'ko' || q === 'en') return q; } catch (e) {}
+  let saved = null; try { saved = localStorage.getItem('bullet.lang'); } catch (e) {}
+  if (saved === 'ko' || saved === 'en') return saved;
+  return /^ko\b/i.test(navigator.language || '') ? 'ko' : 'en';
+}
+let LANG = detectLang();
+const L = () => I18N[LANG];
+document.documentElement.lang = LANG;
 
 /* ───────────── 게임 상태 ───────────── */
 const S = {
@@ -319,10 +446,10 @@ function onHit(yi, d) {
   const pts = Math.round(base * (first ? 1.5 : 1)) + (first && S.streak > 1 ? (S.streak - 1) * 25 : 0);
   S.score += pts;
 
-  const label = ring === 10 ? '불스아이!' : ring >= 8 ? '훌륭해요!' : ring >= 5 ? '명중!' : '아슬아슬!';
+  const label = ring === 10 ? L().bullseye : ring >= 8 ? L().great : ring >= 5 ? L().hit : L().close;
   popup(T.x, T.y + T.R + 0.8, label, ring === 10 ? '#ffd23f' : '#fff', 1.4);
-  popup(T.x, T.y + T.R + 0.1, `${ring}점 링 · +${pts}${first ? ' (원샷 ×1.5)' : ''}`, '#ffe8a8', 0.75);
-  if (first && S.streak > 1) popup(T.x, T.y - T.R - 0.6, `연속 원샷 ${S.streak}회! +${(S.streak - 1) * 25}`, '#7fe0ff', 0.7);
+  popup(T.x, T.y + T.R + 0.1, L().ringPts(ring, pts, first), '#ffe8a8', 0.75);
+  if (first && S.streak > 1) popup(T.x, T.y - T.R - 0.6, L().streak(S.streak, (S.streak - 1) * 25), '#7fe0ff', 0.7);
 
   const colors = ['244,241,234', '230,57,70', '29,111,209', '255,210,63', '150,110,70'];
   for (let i = 0; i < 40; i++) {
@@ -346,16 +473,15 @@ function onMiss(kind) {
   let msg;
   if (b.crossed) {
     const d = b.crossDy;
-    msg = `표적 중심보다 ${Math.abs(d).toFixed(1)}m ${d > 0 ? '위' : '아래'}로 지나감`;
+    msg = L().missOver(Math.abs(d).toFixed(1), d > 0);
   } else if (kind === 'ground' && b.x < T.x) {
-    msg = `표적 ${(T.x - b.x).toFixed(1)}m 앞 지면에 착탄`;
+    msg = L().missShort((T.x - b.x).toFixed(1));
   } else {
-    msg = '빗나감';
+    msg = L().miss;
   }
-  popup(b.x, b.y + 1.2, '빗나감', '#ff8a8a', 1.1);
+  popup(b.x, b.y + 1.2, L().miss, '#ff8a8a', 1.1);
   const need = solveAngle() - S.angle;
-  const hint = Math.abs(need) < 0.05 ? '각도는 거의 맞아요. 표적 움직임에 맞춰 타이밍을 조절해 보세요'
-    : `힌트: 각도를 약 ${Math.abs(need).toFixed(1)}° ${need > 0 ? '올려' : '내려'} 보세요`;
+  const hint = Math.abs(need) < 0.05 ? L().hintTiming : L().hintAdj(Math.abs(need).toFixed(1), need > 0);
   S.hint = hint;
   S.result = { hit: false, msg };
   setState('result');
@@ -382,10 +508,10 @@ function beginIntro(snap) {
   const T = S.target;
   if (snap) { cam.x = T.x; cam.y = Math.max(T.y, 0.3 * H / baseZ()); cam.z = baseZ() * 1.5; }
   const notes = [];
-  if (S.stage === 1) notes.push('바람 없음 · 정지 표적');
-  if (S.wind !== 0 && S.stage === 2) notes.push('바람이 불기 시작합니다');
-  if (S.target.amp > 0 && S.stage === 4) notes.push('표적이 움직입니다!');
-  if (!notes.length) notes.push(`거리 ${S.target.x.toFixed(0)}m · 바람 ${Math.abs(S.wind).toFixed(1)}m/s`);
+  if (S.stage === 1) notes.push(L().introS1);
+  if (S.wind !== 0 && S.stage === 2) notes.push(L().introWind);
+  if (S.target.amp > 0 && S.stage === 4) notes.push(L().introMoving);
+  if (!notes.length) notes.push(L().introInfo(S.target.x.toFixed(0), Math.abs(S.wind).toFixed(1)));
   showBanner(`STAGE ${S.stage}`, notes.join(' · '), 2.4);
   sfx.stage();
 }
@@ -421,45 +547,45 @@ function gameOver() {
   saveLocal(run);
   showCard(`
     <h1>GAME OVER</h1>
-    <p class="sub" style="margin-bottom:6px">탄약을 모두 소진했습니다</p>
+    <p class="sub" style="margin-bottom:6px">${L().goSub}</p>
     <div class="big">${S.score.toLocaleString()}</div>
-    <p class="sub" style="margin-bottom:0">도달 스테이지 ${S.stage} · 내 최고 기록 ${best.toLocaleString()}${isBest ? ' 🎉 신기록!' : ''}</p>
+    <p class="sub" style="margin-bottom:0">${L().goStats(S.stage, best.toLocaleString(), isBest)}</p>
     <form class="submit" id="sub">
-      <input id="nick" maxlength="16" placeholder="닉네임 (최대 16자)" autocomplete="nickname" required>
-      <button id="send" type="submit">기록 등록</button>
-      <select id="country" aria-label="국가"></select>
+      <input id="nick" maxlength="16" placeholder="${L().nickPh}" autocomplete="nickname" required>
+      <button id="send" type="submit">${L().submit}</button>
+      <select id="country" aria-label="${L().country}"></select>
     </form>
-    <p class="status" id="status">${LB.on ? '닉네임과 국가를 정하고 세계 랭킹에 기록을 올리세요' : '이 기기의 랭킹에 기록됩니다'}</p>
-    <h3>${LB.on ? '🌍 세계 랭킹' : '📱 이 기기 랭킹'}</h3>
+    <p class="status" id="status">${LB.on ? L().statusOnline : L().statusLocal}</p>
+    <h3>${LB.on ? L().hWorld : L().hLocal}</h3>
     ${boardHtml()}
-    <div class="btns"><button id="go">다시 도전</button></div>`);
+    <div class="btns"><button id="go">${L().retry}</button></div>`);
   fillCountries(card.querySelector('#country'));
   const nick = card.querySelector('#nick');
   nick.value = store.get('bullet.name') || '';
   const form = card.querySelector('#sub'), status = card.querySelector('#status'), send = card.querySelector('#send');
-  if (S.score <= 0) { send.disabled = true; status.textContent = '0점 기록은 등록할 수 없어요'; }
+  if (S.score <= 0) { send.disabled = true; status.textContent = L().zero; }
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const name = nick.value.replace(/\s+/g, ' ').trim();
     const country = card.querySelector('#country').value;
-    if (!name) { status.className = 'status err'; status.textContent = '닉네임을 입력하세요'; return; }
+    if (!name) { status.className = 'status err'; status.textContent = L().needNick; return; }
     store.set('bullet.name', name); store.set('bullet.country', country);
-    send.disabled = true; status.className = 'status'; status.textContent = '등록 중…';
+    send.disabled = true; status.className = 'status'; status.textContent = L().sending;
     if (!LB.on) {
       run.name = name; run.country = country; saveLocal(run, true);
-      status.className = 'status ok'; status.textContent = '이 기기 랭킹에 저장했어요';
+      status.className = 'status ok'; status.textContent = L().savedLocal;
       loadBoard('all', run.localId);
       return;
     }
     try {
       const r = await LB.submit(name, country, run.score, run.stage);
       status.className = 'status ok';
-      status.textContent = `등록 완료! 세계 ${Number(r.out_rank).toLocaleString()}위 (전체 ${Number(r.out_total).toLocaleString()}개 기록 중)`;
+      status.textContent = L().posted(Number(r.out_rank).toLocaleString(), Number(r.out_total).toLocaleString());
       loadBoard('all', r.out_id);
     } catch (err) {
       send.disabled = false;
       status.className = 'status err';
-      status.textContent = '등록하지 못했어요: ' + friendlyError(err);
+      status.textContent = L().postFail + friendlyError(err);
     }
   });
   wireBoard();
@@ -508,11 +634,12 @@ const LB = (() => {
 
 function friendlyError(err) {
   const m = String(err && err.message || err);
-  if (/abort/i.test(m)) return '서버 응답이 없어요. 잠시 후 다시 시도하세요';
-  if (/too many/i.test(m)) return '잠시 후 다시 시도하세요 (연속 등록 제한)';
-  if (/implausible/i.test(m)) return '비정상적인 점수로 판단되었어요';
-  if (/invalid name/i.test(m)) return '닉네임은 1~16자여야 해요';
-  if (/fetch|network/i.test(m)) return '서버에 연결할 수 없어요';
+  if (/abort/i.test(m)) return L().errTimeout;
+  if (/too many/i.test(m)) return L().errRate;
+  if (/implausible/i.test(m)) return L().errImplausible;
+  if (/invalid name/i.test(m)) return L().errName;
+  if (/could not find the function|schema cache|does not exist/i.test(m)) return L().errOutdated;
+  if (/fetch|network/i.test(m)) return L().errNet;
   return m;
 }
 
@@ -534,9 +661,12 @@ const COUNTRY_CODES = ('AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD
   'NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN ' +
   'SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW').split(' ');
 const flag = c => /^[A-Z]{2}$/.test(c) && c !== 'UN' ? String.fromCodePoint(...[...c].map(ch => 127397 + ch.charCodeAt(0))) : '🌐';
-let regionNames = null;
-try { regionNames = new Intl.DisplayNames(['ko'], { type: 'region' }); } catch (e) {}
-const countryName = c => { if (c === 'UN') return '기타 / 비공개'; try { return (regionNames && regionNames.of(c)) || c; } catch (e) { return c; } };
+const regionCache = {};
+function regionNames() {
+  if (!(LANG in regionCache)) { try { regionCache[LANG] = new Intl.DisplayNames([LANG], { type: 'region' }); } catch (e) { regionCache[LANG] = null; } }
+  return regionCache[LANG];
+}
+const countryName = c => { if (c === 'UN') return L().countryOther; try { const rn = regionNames(); return (rn && rn.of(c)) || c; } catch (e) { return c; } };
 function guessCountry() {
   const saved = store.get('bullet.country');
   if (saved) return saved;
@@ -546,16 +676,16 @@ function guessCountry() {
   return byLang[(langs[0] || '').slice(0, 2)] || 'UN';
 }
 function fillCountries(sel) {
-  const list = COUNTRY_CODES.map(c => [c, countryName(c)]).sort((a, b) => a[1].localeCompare(b[1], 'ko'));
+  const list = COUNTRY_CODES.map(c => [c, countryName(c)]).sort((a, b) => a[1].localeCompare(b[1], LANG));
   list.push(['UN', countryName('UN')]);
   for (const [c, n] of list) { const o = document.createElement('option'); o.value = c; o.textContent = `${flag(c)} ${n}`; sel.appendChild(o); }
   sel.value = guessCountry();
 }
 
 function boardHtml() {
-  return `${LB.on ? `<div class="tabs" id="tabs"><button data-p="day">24시간</button><button data-p="week">7일</button><button data-p="all" class="on">전체</button></div>` : ''}
-    <ol class="board" id="board"><li><span class="empty">불러오는 중…</span></li></ol>
-    ${LB.on ? '' : '<p class="note">세계 랭킹 서버가 아직 연결되지 않아 이 기기의 기록만 보여요</p>'}`;
+  return `${LB.on ? `<div class="tabs" id="tabs"><button data-p="day">${L().tabDay}</button><button data-p="week">${L().tabWeek}</button><button data-p="all" class="on">${L().tabAll}</button></div>` : ''}
+    <ol class="board" id="board"><li><span class="empty">${L().loading}</span></li></ol>
+    ${LB.on ? '' : `<p class="note">${L().localNote}</p>`}`;
 }
 let boardPeriod = 'all', boardHighlight = null;
 function wireBoard() {
@@ -573,7 +703,7 @@ async function loadBoard(period, highlight) {
   let rows;
   if (LB.on) {
     try { rows = await LB.top(period); }
-    catch (err) { renderBoard(board, null, '랭킹을 불러오지 못했어요: ' + friendlyError(err)); return; }
+    catch (err) { renderBoard(board, null, L().loadFail + friendlyError(err)); return; }
   } else rows = loadLocal().slice(0, 50);
   if (boardPeriod !== period) return;
   renderBoard(board, rows);
@@ -582,7 +712,7 @@ function renderBoard(board, rows, errMsg) {
   board.textContent = '';
   if (!rows || !rows.length) {
     const li = document.createElement('li'); const sp = document.createElement('span'); sp.className = 'empty';
-    sp.textContent = errMsg || '아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!';
+    sp.textContent = errMsg || L().empty;
     li.appendChild(sp); board.appendChild(li); return;
   }
   rows.forEach((r, i) => {
@@ -598,10 +728,10 @@ function renderBoard(board, rows, errMsg) {
   const me = board.querySelector('.me'); if (me) me.scrollIntoView({ block: 'nearest' });
 }
 function showRanking() {
-  showCard(`<h1 style="font-size:30px">🌍 랭킹</h1>
-    <p class="sub">${LB.on ? '전 세계 사수들의 최고 기록' : '이 기기에서 등록한 기록'}</p>
+  showCard(`<h1 style="font-size:30px">${L().rankTitle}</h1>
+    <p class="sub">${LB.on ? L().rankSubOnline : L().rankSubLocal}</p>
     ${boardHtml()}
-    <div class="btns"><button id="go">사격 시작</button><button class="ghost" id="back">뒤로</button></div>`);
+    <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="back">${L().back}</button></div>`);
   card.querySelector('#back').addEventListener('click', showTitle);
   wireBoard();
   loadBoard('all', null);
@@ -1112,7 +1242,7 @@ function drawPip() {
         ctx.fillStyle = col; ctx.beginPath();
         ctx.moveTo(cx, up ? ay - 6 : ay + 6); ctx.lineTo(cx - 7, up ? ay + 4 : ay - 4); ctx.lineTo(cx + 7, up ? ay + 4 : ay - 4); ctx.fill();
         ctx.font = '700 11px system-ui, sans-serif'; ctx.textAlign = 'left';
-        ctx.fillText(`예상 탄착 ${Math.abs(P.y - T.y).toFixed(1)}m ${up ? '위' : '아래'}`, cx + 10, ay + 4);
+        ctx.fillText(L().pipOff(Math.abs(P.y - T.y).toFixed(1), up), cx + 10, ay + 4);
       } else {
         ctx.strokeStyle = col; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(cx, my, 7, 0, Math.PI * 2); ctx.stroke();
@@ -1121,7 +1251,7 @@ function drawPip() {
       }
     } else {
       ctx.fillStyle = '#ff8a8a'; ctx.font = '700 12px system-ui, sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(`표적 ${(T.x - P.x).toFixed(0)}m 앞 지면에 떨어짐 ▲`, w / 2, h - 26);
+      ctx.fillText(L().pipShort((T.x - P.x).toFixed(0)), w / 2, h - 26);
     }
   }
   V = saved;
@@ -1129,7 +1259,7 @@ function drawPip() {
   ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.roundRect ? ctx.roundRect(ox, oy, w, h, 10) : ctx.rect(ox, oy, w, h); ctx.stroke();
   ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'left';
-  ctx.fillText(`표적 망원뷰 · ${T.x.toFixed(0)}m`, ox + 8, oy + h - 8);
+  ctx.fillText(L().pipLabel(T.x.toFixed(0)), ox + 8, oy + h - 8);
 }
 
 function render() {
@@ -1167,15 +1297,15 @@ function updateHud() {
   const T = S.target;
   const ammo = Array.from({ length: S.maxAmmo }, (_, i) => `<span class="${i < S.ammo ? '' : 'used'}"></span>`).join('');
   const w = S.wind;
-  const windStr = Math.abs(w) < 0.05 ? '없음' : `${w > 0 ? '→' : '←'} ${Math.abs(w).toFixed(1)} m/s`;
+  const windStr = Math.abs(w) < 0.05 ? L().windNone : `${w > 0 ? '→' : '←'} ${Math.abs(w).toFixed(1)} m/s`;
   const html =
     `<div class="row"><span>STAGE</span><b>${S.stage}</b></div>` +
-    `<div class="row"><span>점수</span><b>${S.score.toLocaleString()}</b></div>` +
-    `<div class="row"><span>탄약</span><span id="ammo">${ammo}</span></div>` +
+    `<div class="row"><span>${L().hudScore}</span><b>${S.score.toLocaleString()}</b></div>` +
+    `<div class="row"><span>${L().hudAmmo}</span><span id="ammo">${ammo}</span></div>` +
     `<div class="sep"></div>` +
-    `<div class="row"><span>거리</span><span>${T.x.toFixed(1)} m</span></div>` +
-    `<div class="row"><span>표적 높이</span><span>${T.amp > 0 ? `${T.baseY.toFixed(1)}±${T.amp.toFixed(1)}` : T.y.toFixed(1)} m</span></div>` +
-    `<div class="row"><span>바람</span><span>${windStr}</span></div>` +
+    `<div class="row"><span>${L().hudDist}</span><span>${T.x.toFixed(1)} m</span></div>` +
+    `<div class="row"><span>${L().hudHeight}</span><span>${T.amp > 0 ? `${T.baseY.toFixed(1)}±${T.amp.toFixed(1)}` : T.y.toFixed(1)} m</span></div>` +
+    `<div class="row"><span>${L().hudWind}</span><span>${windStr}</span></div>` +
     (S.state === 'result' && !S.result.hit ? `<div class="sep"></div><div style="color:#ffb3b3">${S.result.msg}</div><div style="color:#ffd27a">${S.hint || ''}</div>` : '');
   if (html !== lastInfo) { infoEl.innerHTML = html; lastInfo = html; }
   let pl = '';
@@ -1183,12 +1313,12 @@ function updateHud() {
   if (S.state === 'aim' && P) {
     if (P.reach) {
       const d = P.y - T.y, on = Math.abs(d) <= T.R;
-      pl = `<em style="color:${on ? '#5dff9d' : '#9fe9ff'}">예상 탄착: ${on ? '표적 안 · ' : ''}중심보다 ${Math.abs(d).toFixed(1)}m ${d >= 0 ? '위' : '아래'} · ${P.t.toFixed(1)}초 후 도달</em>`;
-      if (T.amp > 0) pl += `<em>표적이 움직여요. 도달 시간 동안의 이동을 고려하세요</em>`;
-    } else pl = `<em style="color:#ff9b9b">예상 탄착: 표적 ${(T.x - P.x).toFixed(0)}m 앞 지면. 각도를 올리세요</em>`;
+      pl = `<em style="color:${on ? '#5dff9d' : '#9fe9ff'}">${L().pred(on, Math.abs(d).toFixed(1), d >= 0, P.t.toFixed(1))}</em>`;
+      if (T.amp > 0) pl += `<em>${L().predMoving}</em>`;
+    } else pl = `<em style="color:#ff9b9b">${L().predShort((T.x - P.x).toFixed(0))}</em>`;
   }
   if (S.hint && S.state === 'aim') pl += `<em style="color:#ffd27a">${S.hint}</em>`;
-  const ah = `${S.angle.toFixed(1)}°${pl}<small>${matchMedia('(pointer:coarse)').matches ? '드래그로 조준 · 손을 떼면 발사' : '마우스 조준 · 클릭 발사 · ↑↓ 미세조정'}</small>`;
+  const ah = `${S.angle.toFixed(1)}°${pl}<small>${matchMedia('(pointer:coarse)').matches ? L().ctrlTouch : L().ctrlMouse}</small>`;
   if (ah !== lastAngle) { angleEl.innerHTML = ah; lastAngle = ah; }
 }
 
@@ -1207,18 +1337,19 @@ makeStage(1);
 cam.x = S.target.x * 0.5; cam.z = baseZ() * 0.9; cam.y = 0.3 * H / cam.z;
 function showTitle() {
 showCard(`
+  <button class="lang" id="lang" lang="${LANG === 'ko' ? 'en' : 'ko'}">${L().langToggle}</button>
   <h1>BULLET</h1>
-  <p class="sub">허공을 가르는 단 한 발 — 표적의 중심을 꿰뚫어라</p>
-  <ul>
-    <li><b>조준</b>: 마우스를 움직여 각도를 맞추고 <b>클릭</b>으로 발사<br>(모바일: 드래그 후 손을 떼면 발사, 키보드 <kbd>↑</kbd><kbd>↓</kbd> 미세조정 · <kbd>Space</kbd> 발사)</li>
-    <li>탄환은 <b>중력</b>으로 떨어지고 <b>바람</b>에 밀립니다</li>
-    <li>스테이지마다 탄 3발. 명중하면 다음 스테이지, 모두 놓치면 게임 오버</li>
-    <li>점선은 직전 탄도, 오른쪽 위 망원뷰로 탄착을 확인하세요</li>
-    <li>첫 발 명중 시 ×1.5 보너스, 연속 원샷은 추가 점수!</li>
-  </ul>
-  ${best ? `<p class="sub">내 최고 기록 ${best.toLocaleString()}</p>` : ''}
-  <div class="btns"><button id="go">사격 시작</button><button class="ghost" id="rank">🌍 랭킹 보기</button></div>`);
+  <p class="sub">${L().tagline}</p>
+  <ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
+  ${best ? `<p class="sub">${L().myBest(best.toLocaleString())}</p>` : ''}
+  <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button></div>`);
 card.querySelector('#rank').addEventListener('click', showRanking);
+card.querySelector('#lang').addEventListener('click', () => {
+  LANG = LANG === 'ko' ? 'en' : 'ko';
+  store.set('bullet.lang', LANG);
+  document.documentElement.lang = LANG;
+  showTitle();
+});
 }
 showTitle();
 requestAnimationFrame(frame);
