@@ -392,6 +392,9 @@ function fire() {
   if (S.state !== 'aim' || S.ammo <= 0) return;
   const tip = muzzleTip(S.angle);
   S.bullet = { x: tip.x, y: tip.y, vx: V0 * Math.cos(tip.a), vy: V0 * Math.sin(tip.a), t: 0, crossed: false, whoosh: false };
+  // 표적 근처를 지나갈 탄만 슬로모션: 도착 시점의 표적 위치와 비교해 가장자리에서 1m 이내면 연출합니다.
+  const P = predict(S.angle);
+  S.bullet.slowmo = P.reach && Math.abs(P.y - targetY(S.time + P.t)) <= S.target.R + 1.0;
   S.trail = [{ x: tip.x, y: tip.y }];
   S.ghostCur = [{ x: tip.x, y: tip.y }];
   S.nextRing = tip.x + 4;
@@ -854,10 +857,10 @@ function update(rdt) {
   if (S.state === 'flight') {
     const b = S.bullet, dx = T.x - b.x;
     if (b.t < 0.1) tsGoal = 0.3;
-    else if (dx < 12 && dx > -4) tsGoal = 0.13;
-    else if (dx < 28 && dx > -4) tsGoal = 0.45;
+    else if (b.slowmo && dx < 12 && dx > -4) tsGoal = 0.13;
+    else if (b.slowmo && dx < 28 && dx > -4) tsGoal = 0.45;
     else if (dx > 60 && b.t > 0.4) tsGoal = 1.5;
-    if (dx < 28 && !b.whoosh) { b.whoosh = true; sfx.whoosh(); }
+    if (b.slowmo && dx < 28 && !b.whoosh) { b.whoosh = true; sfx.whoosh(); }
   } else if (S.state === 'result') {
     tsGoal = S.result.hit ? (S.stateT < 0.7 ? 0.06 : 0.7) : 1;
     tsRate = S.result.hit ? 4 : 10;
@@ -903,7 +906,7 @@ function update(rdt) {
   const aimView = () => { gz = bz; gx = W * 0.30 / gz; gy = 0.27 * H / gz; };
   if (S.state === 'flight') {
     const b = S.bullet, dx = T.x - b.x;
-    const near = dx < 14 && dx > -6;
+    const near = b.slowmo && dx < 14 && dx > -6;
     gz = bz * (near ? 1.9 : 1.15);
     gx = b.x + W * 0.1 / cam.z;
     gy = near ? lerp(b.y, T.y, 0.5) : b.y;
