@@ -123,3 +123,39 @@ $$;
 
 revoke all on function public.top_scores(text, date, timestamptz, int) from public;
 grant execute on function public.top_scores(text, date, timestamptz, int) to anon, authenticated;
+
+-- 국가 대항전: 국가 점수 = 그 나라 상위 10명(플레이어별 최고 기록)의 합계. '기타(UN)'는 제외.
+create or replace function public.country_stats(
+  p_mode text default 'normal', p_day date default null, p_since timestamptz default null)
+returns table (country text, players bigint, points bigint, top_name text, top_score int)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with best as (
+    select distinct on (s.name, s.country) s.name, s.country, s.score
+    from scores s
+    where s.mode = coalesce(p_mode, 'normal')
+      and s.day is not distinct from (case when coalesce(p_mode, 'normal') = 'daily' then p_day end)
+      and (p_since is null or s.created_at >= p_since)
+      and s.country <> 'UN'
+    order by s.name, s.country, s.score desc, s.created_at asc
+  ), ranked as (
+    select b.name, b.country, b.score,
+           row_number() over (partition by b.country order by b.score desc, b.name) as rn
+    from best b
+  )
+  select r.country,
+         count(*)::bigint,
+         coalesce(sum(r.score) filter (where r.rn <= 10), 0)::bigint,
+         max(r.name) filter (where r.rn = 1),
+         max(r.score) filter (where r.rn = 1)
+  from ranked r
+  group by r.country
+  order by 3 desc, 2 desc
+  limit 100;
+$$;
+
+revoke all on function public.country_stats(text, date, timestamptz) from public;
+grant execute on function public.country_stats(text, date, timestamptz) to anon, authenticated;

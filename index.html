@@ -73,7 +73,7 @@
   .submit button { padding: 10px 18px; font-size: 15px; }
   .status { min-height: 1.4em; font-size: 13px; margin: 4px 0 0; opacity: .9; }
   .status.err { color: #ff9b9b; } .status.ok { color: #7dffa8; }
-  .tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
   .tabs button { background: rgba(255,255,255,.1); color: #fff; padding: 6px 12px; font-size: 13px; font-weight: 600; }
   .tabs button.on { background: var(--accent); color: #1b1300; }
   .board { list-style: none; margin: 0 0 16px; padding: 0; text-align: left; font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -86,6 +86,8 @@
   .board .nm small { opacity: .6; margin-left: 6px; }
   .board .sc { font-weight: 800; color: var(--accent); }
   .board .empty { display: block; text-align: center; opacity: .7; padding: 14px; }
+  .board .nm .meta { display: block; margin: 0; font-size: 11px; opacity: .6; overflow: hidden; text-overflow: ellipsis; }
+  .tabs.kind button { font-size: 14px; padding: 7px 14px; }
   .note { font-size: 12px; opacity: .65; margin: 0 0 14px; }
   .lang { position: absolute; top: 12px; right: 12px; }
   .sharecard { margin: 12px auto 4px; padding: 10px 14px; max-width: 100%; box-sizing: border-box; border-radius: 10px;
@@ -206,6 +208,11 @@ const I18N = {
     dailyBtn: n => `📅 오늘의 데일리 #${n}`, dailyLabel: n => `데일리 #${n}`,
     dailySub: '오늘 하루, 전 세계가 같은 코스로 겨룹니다. 몇 번이든 도전할 수 있어요',
     tabDaily: '📅 오늘 데일리',
+    kindPlayer: '👤 개인', kindCountry: '🚩 국가 대항전',
+    countryRule: '국가 점수 = 그 나라 상위 10명의 최고 기록 합계. 친구를 불러 국가 순위를 올리세요!',
+    countryMeta: (n, ace) => `${n}명 참가 · 에이스 ${ace}`,
+    nationRank: (f, c, r) => `${f} ${c}: 국가 대항전 ${r}위`,
+    shareNation: (f, r) => `${f} 국가 대항전 ${r}위`,
   },
   en: {
     tagline: 'One shot across the sky. Hit dead center.',
@@ -258,6 +265,11 @@ const I18N = {
     dailyBtn: n => `📅 Today’s Daily #${n}`, dailyLabel: n => `Daily #${n}`,
     dailySub: 'Same course for everyone on Earth today. Retry as often as you like',
     tabDaily: '📅 Today’s Daily',
+    kindPlayer: '👤 Players', kindCountry: '🚩 Nations',
+    countryRule: 'Nation score = sum of its top 10 players’ best scores. Bring friends to push your country up!',
+    countryMeta: (n, ace) => `${n} ${n === '1' ? 'player' : 'players'} · ace ${ace}`,
+    nationRank: (f, c, r) => `${f} ${c}: #${r} among nations`,
+    shareNation: (f, r) => `${f} Nations #${r}`,
   },
 };
 function detectLang() {
@@ -531,7 +543,7 @@ function startGame(mode) {
   audio();
   S.mode = mode === 'daily' ? 'daily' : 'normal';
   S.day = S.mode === 'daily' ? todayKey() : null;
-  S.stage = 1; S.score = 0; S.streak = 0; S.angle = 8; S.history = []; S.lastRank = null; S.time = 0;
+  S.stage = 1; S.score = 0; S.streak = 0; S.angle = 8; S.history = []; S.lastRank = null; S.lastNation = null; S.time = 0;
   S.particles = []; S.popups = [];
   makeStage(1);
   beginIntro(true);
@@ -626,6 +638,17 @@ function gameOver() {
       status.textContent = L().posted(Number(r.out_rank).toLocaleString(), Number(r.out_total).toLocaleString());
       S.lastRank = Number(r.out_rank).toLocaleString();
       sharecard.textContent = shareText();
+      if (country !== 'UN') {
+        try {
+          const nations = await LB.countries(boardFilter(boardTab));
+          const idx = nations.findIndex(n => n.country === country);
+          if (idx >= 0) {
+            S.lastNation = { country, rank: idx + 1 };
+            status.textContent += ' · ' + L().nationRank(flag(country), countryName(country), idx + 1);
+            sharecard.textContent = shareText();
+          }
+        } catch (e) { /* 국가 순위는 부가 정보라 실패해도 넘어갑니다 */ }
+      }
       loadBoard(boardTab, { name, country });
     } catch (err) {
       send.disabled = false;
@@ -644,7 +667,7 @@ function shareText() {
   const rows = [];
   for (let i = 0; i < cells.length; i += 10) rows.push(cells.slice(i, i + 10).join(''));
   const lines = [L().shareHead(S.stage, S.score.toLocaleString(), S.mode === 'daily' ? L().dailyLabel(dailyNo(S.day)) : ''), ...rows];
-  if (S.lastRank) lines.push(L().shareRank(S.lastRank));
+  if (S.lastRank) lines.push(L().shareRank(S.lastRank) + (S.lastNation ? ' · ' + L().shareNation(flag(S.lastNation.country), S.lastNation.rank) : ''));
   lines.push(shareLink());
   return lines.join('\n');
 }
@@ -696,6 +719,10 @@ const LB = (() => {
     async top(f) {
       return req('/rest/v1/rpc/top_scores', { method: 'POST',
         body: JSON.stringify({ p_mode: f.mode, p_day: f.day, p_since: f.since, p_limit: 50 }) });
+    },
+    async countries(f) {
+      return req('/rest/v1/rpc/country_stats', { method: 'POST',
+        body: JSON.stringify({ p_mode: f.mode, p_day: f.day, p_since: f.since }) });
     },
     async submit(name, country, score, stage, mode, day) {
       const rows = await req('/rest/v1/rpc/submit_score', { method: 'POST',
@@ -757,11 +784,13 @@ function fillCountries(sel) {
 }
 
 function boardHtml() {
-  return `<div class="tabs" id="tabs"><button data-p="daily">${L().tabDaily}</button>${LB.on ? `<button data-p="day">${L().tabDay}</button><button data-p="week">${L().tabWeek}</button>` : ''}<button data-p="all">${L().tabAll}</button></div>
+  return `<div class="tabs kind" id="kinds"><button data-k="player">${L().kindPlayer}</button><button data-k="country">${L().kindCountry}</button></div>
+    <div class="tabs" id="tabs"><button data-p="daily">${L().tabDaily}</button>${LB.on ? `<button data-p="day">${L().tabDay}</button><button data-p="week">${L().tabWeek}</button>` : ''}<button data-p="all">${L().tabAll}</button></div>
+    <p class="note" id="countryRule" hidden>${L().countryRule}</p>
     <ol class="board" id="board"><li><span class="empty">${L().loading}</span></li></ol>
     ${LB.on ? '' : `<p class="note">${L().localNote}</p>`}`;
 }
-let boardPeriod = 'all', boardHighlight = null;
+let boardPeriod = 'all', boardHighlight = null, boardKind = 'player';
 function boardFilter(period) {
   if (period === 'daily') return { mode: 'daily', day: todayKey(), since: null };
   const since = period === 'all' ? null : new Date(Date.now() - (period === 'day' ? 1 : 7) * 864e5).toISOString();
@@ -779,25 +808,59 @@ function localTop(f) {
   }
   return [...bestBy.values()].sort((a, b) => b.score - a.score).slice(0, 50);
 }
+function localCountries(f) {
+  const by = new Map();
+  for (const r of localTop(f)) {
+    if (r.country === 'UN') continue;
+    const c = by.get(r.country) || { country: r.country, players: 0, points: 0, top_name: r.name, top_score: r.score };
+    c.players++; if (c.players <= 10) c.points += r.score;
+    by.set(r.country, c);
+  }
+  return [...by.values()].sort((a, b) => b.points - a.points || b.players - a.players);
+}
 function wireBoard() {
-  const tabs = card.querySelector('#tabs');
-  if (!tabs) return;
-  tabs.addEventListener('click', e => {
+  boardKind = 'player';
+  const tabs = card.querySelector('#tabs'), kinds = card.querySelector('#kinds');
+  if (tabs) tabs.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     loadBoard(b.dataset.p, boardHighlight);
+  });
+  if (kinds) kinds.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    boardKind = b.dataset.k;
+    loadBoard(boardPeriod, boardHighlight);
   });
 }
 async function loadBoard(period, highlight) {
   boardPeriod = period; if (highlight !== undefined) boardHighlight = highlight;
   const board = card.querySelector('#board'); if (!board) return;
   card.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.p === period));
+  card.querySelectorAll('#kinds button').forEach(b => b.classList.toggle('on', b.dataset.k === boardKind));
+  const rule = card.querySelector('#countryRule'); if (rule) rule.hidden = boardKind !== 'country';
+  const kind = boardKind, f = boardFilter(period);
   let rows;
   if (LB.on) {
-    try { rows = await LB.top(boardFilter(period)); }
-    catch (err) { if (boardPeriod === period) renderBoard(board, null, L().loadFail + friendlyError(err)); return; }
-  } else rows = localTop(boardFilter(period));
-  if (boardPeriod !== period) return;
-  renderBoard(board, rows);
+    try { rows = kind === 'country' ? await LB.countries(f) : await LB.top(f); }
+    catch (err) { if (boardPeriod === period && boardKind === kind) renderBoard(board, null, L().loadFail + friendlyError(err)); return; }
+  } else rows = kind === 'country' ? localCountries(f) : localTop(f);
+  if (boardPeriod !== period || boardKind !== kind) return;
+  if (kind === 'country') renderCountries(board, rows); else renderBoard(board, rows);
+}
+function renderCountries(board, rows) {
+  if (!rows || !rows.length) return renderBoard(board, null);
+  board.textContent = '';
+  rows.forEach((r, i) => {
+    const li = document.createElement('li');
+    if (boardHighlight && r.country === boardHighlight.country) li.className = 'me';
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = ['🥇', '🥈', '🥉'][i] || String(i + 1);
+    const fl = document.createElement('span'); fl.textContent = flag(r.country);
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = countryName(r.country);
+    const meta = document.createElement('small'); meta.className = 'meta';
+    meta.textContent = L().countryMeta(Number(r.players).toLocaleString(), r.top_name || '-'); nm.appendChild(meta);
+    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = Number(r.points).toLocaleString();
+    li.append(rk, fl, nm, sc); board.appendChild(li);
+  });
+  const me = board.querySelector('.me'); if (me) me.scrollIntoView({ block: 'nearest' });
 }
 function renderBoard(board, rows, errMsg) {
   board.textContent = '';
