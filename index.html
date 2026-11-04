@@ -98,6 +98,12 @@
   .sharestatus { min-height: 1.3em; font-size: 13px; color: #7dffa8; margin: 0 0 10px; }
   .card h3 { margin: 18px 0 8px; font-size: 15px; letter-spacing: .04em; }
   .card .submit button { padding: 10px 18px; font-size: 15px; }
+  .settings { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 10px; align-items: center; text-align: left;
+    margin: 16px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.05); font-size: 13px; }
+  .settings input[type=range] { width: 100%; min-width: 0; accent-color: var(--accent); }
+  .settings output { font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; opacity: .85; }
+  .settings .chk { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; opacity: .9; }
+  .settings input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
   kbd { background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 5px; font-size: 12px; }
   [hidden] { display: none !important; }
 </style>
@@ -168,10 +174,11 @@ const I18N = {
       touchUI ? '<b>드래그</b>로 조준하고 <b>발사</b> 버튼으로 쏩니다' : '화면을 <b>클릭</b>하면 마우스로 조준합니다(<kbd>Esc</kbd>로 해제). 다시 <b>클릭</b>하거나 <kbd>Space</kbd>로 발사',
       '가늠쇠 끝이 조준점입니다. 탄은 <b>중력</b>으로 떨어지니 먼 표적은 <b>위를</b> 겨누세요',
       '<b>옆바람</b>이 탄을 좌우로 밉니다. 깃발과 바람 표시를 보고 바람 반대쪽을 겨누세요',
-      touchUI ? '<b>숨 참기</b> 버튼을 누르는 동안 흔들림이 줄어듭니다' : '<kbd>Shift</kbd>를 누르는 동안 <b>숨을 참아</b> 흔들림을 줄입니다',
+      (touchUI ? '<b>숨 참기</b> 버튼을 누르는 동안' : '<kbd>Shift</kbd>를 누르는 동안') + ' <b>숨을 참아</b> 흔들림이 줄고, 감도가 절반이 되어 미세 조준이 쉬워집니다',
       '스테이지마다 탄 3발. 명중하면 다음 스테이지',
     ],
     start: '사격 시작', classic: '2D 클래식 버전', langToggle: 'English',
+    sens: '마우스 감도', sensTouch: '터치 감도', smooth: '조준 떨림 보정 (천천히 움직일 때 부드럽게)',
     share: '📤 결과 공유',
     shareHead: (st, sc) => `BULLET 🎯 스테이지 ${st} · ${sc}점`,
     shareRank: r => `🌍 세계 ${r}위`,
@@ -235,10 +242,11 @@ const I18N = {
       touchUI ? '<b>Drag</b> to aim, tap <b>FIRE</b> to shoot' : '<b>Click</b> the screen to aim with the mouse (<kbd>Esc</kbd> releases). <b>Click</b> again or press <kbd>Space</kbd> to fire',
       'The tip of the front post is your aim point. Bullets drop with <b>gravity</b>, so hold <b>high</b> on far targets',
       '<b>Crosswind</b> pushes the bullet sideways. Read the flags and aim into the wind',
-      touchUI ? 'Hold <b>BREATH</b> to steady your aim' : 'Hold <kbd>Shift</kbd> to <b>hold your breath</b> and steady the sway',
+      (touchUI ? 'Hold <b>BREATH</b>' : 'Hold <kbd>Shift</kbd>') + ' to <b>hold your breath</b>: less sway and half sensitivity for fine aiming',
       '3 rounds per stage. Hit to advance',
     ],
     start: 'Start', classic: '2D classic version', langToggle: '한국어',
+    sens: 'Mouse sensitivity', sensTouch: 'Touch sensitivity', smooth: 'Aim smoothing (steadier slow movements)',
     share: '📤 Share result',
     shareHead: (st, sc) => `BULLET 🎯 Stage ${st} · ${sc} pts`,
     shareRank: r => `🌍 World #${r}`,
@@ -308,7 +316,7 @@ document.documentElement.lang = LANG;
 /* ───────────── 상태 ───────────── */
 const S = {
   state: 'title', stateT: 0, stage: 1, score: 0, streak: 0, ammo: 3, shots: 0, time: 0, ts: 1, tsBase: 1,
-  yaw: 0, pitch: 0, breath: 1, holding: false, winded: false, wind: 0,
+  yaw: 0, pitch: 0, aimYaw: 0, aimPitch: 0, breath: 1, holding: false, winded: false, wind: 0,
   target: null, bullet: null, trail: [], rings: [], particles: [], marks: [], trees: [], flags: [],
   feedback: '', popup: null, flash: 0, shake: 0, history: [], lastRank: null,
 };
@@ -489,7 +497,7 @@ function windLabel() {
 }
 function startStage() {
   makeStage(S.stage);
-  S.yaw = 0; S.pitch = 0; S.bullet = null; S.trail = []; S.rings = [];
+  setAim(0, 0); S.bullet = null; S.trail = []; S.rings = [];
   setState('aim');
   banner(`STAGE ${S.stage}`, L().introInfo(S.target.z.toFixed(0), windLabel()) + (S.target.amp ? ' · ' + L().moving : ''), 2.4);
   sfx.stage();
@@ -742,33 +750,87 @@ function showRanking() {
 }
 
 /* ───────────── 입력 ───────────── */
+// 조준 파이프라인
+//   1) 입력 이벤트는 각도 변화량만 모아 둡니다(마우스 보고율 125~8000Hz와 화면 주사율이 달라도 안전).
+//   2) 매 프레임 그리기 직전에 모은 양을 '목표 조준'(aimYaw/aimPitch)에 한 번에 반영합니다.
+//   3) 화면과 발사에 쓰는 실제 조준(yaw/pitch)은 One Euro 필터로 목표를 따라갑니다.
+//      천천히 미세 조준할 때는 자잘한 계단 현상을 걸러 내고, 빠르게 돌릴 때는 지연 없이 따라갑니다.
 const AIM_LIM = { yaw: 40 * DEG, pitchMin: -10 * DEG, pitchMax: 25 * DEG };
-function nudge(dyaw, dpitch) {
-  S.yaw = clamp(S.yaw + dyaw, -AIM_LIM.yaw, AIM_LIM.yaw);
-  S.pitch = clamp(S.pitch + dpitch, AIM_LIM.pitchMin, AIM_LIM.pitchMax);
+const BASE_SENS = { lock: 0.025, drag: 0.03, touch: 0.05 }; // 도/픽셀(감도 1.0 기준)
+let SENS = clamp(+(store.get('bullet.sens') || 1) || 1, 0.3, 3);
+let SMOOTH = store.get('bullet.smooth') !== '0';
+const inAcc = { yaw: 0, pitch: 0 };
+function addInput(px, py, kind) {
+  const k = BASE_SENS[kind] * SENS * (S.holding && !S.winded ? 0.5 : 1) * DEG; // 숨 참는 동안은 정밀 조준(감도 절반)
+  inAcc.yaw += px * k; inAcc.pitch -= py * k;
 }
+function nudge(dyaw, dpitch) {
+  S.aimYaw = clamp(S.aimYaw + dyaw, -AIM_LIM.yaw, AIM_LIM.yaw);
+  S.aimPitch = clamp(S.aimPitch + dpitch, AIM_LIM.pitchMin, AIM_LIM.pitchMax);
+}
+function oneEuro(minCutoff, beta, dCutoff = 1) {
+  let x = null, dx = 0;
+  const alpha = (fc, dt) => 1 / (1 + 1 / (2 * Math.PI * fc * dt));
+  return {
+    reset(v) { x = v; dx = 0; },
+    step(v, dt) {
+      if (x === null || dt <= 0) return (x = v);
+      dx += alpha(dCutoff, dt) * ((v - x) / dt - dx);
+      x += alpha(minCutoff + beta * Math.abs(dx), dt) * (v - x);
+      if (Math.abs(v - x) < 1e-4) x = v;
+      return x;
+    },
+  };
+}
+const fYaw = oneEuro(7, 0.6), fPitch = oneEuro(7, 0.6); // 단위: 도
+function setAim(yaw, pitch) { // 즉시 조준(스테이지 시작 등): 필터도 함께 맞춥니다.
+  S.aimYaw = S.yaw = yaw; S.aimPitch = S.pitch = pitch;
+  fYaw.reset(yaw / DEG); fPitch.reset(pitch / DEG); inAcc.yaw = inAcc.pitch = 0;
+}
+function applyAim(rdt) {
+  if (S.state !== 'aim') { inAcc.yaw = inAcc.pitch = 0; return; }
+  if (inAcc.yaw || inAcc.pitch) { nudge(inAcc.yaw, inAcc.pitch); inAcc.yaw = inAcc.pitch = 0; }
+  if (SMOOTH) { S.yaw = fYaw.step(S.aimYaw / DEG, rdt) * DEG; S.pitch = fPitch.step(S.aimPitch / DEG, rdt) * DEG; }
+  else { S.yaw = S.aimYaw; S.pitch = S.aimPitch; fYaw.reset(S.yaw / DEG); fPitch.reset(S.pitch / DEG); }
+}
+
 const canLock = 'requestPointerLock' in cv && !touchUI;
-let lockFailed = false, drag = null;
+let lockFailed = false, drag = null, lockAt = 0;
 const locked = () => document.pointerLockElement === cv;
 document.addEventListener('pointerlockerror', () => { lockFailed = true; });
+document.addEventListener('pointerlockchange', () => { lockAt = performance.now(); });
+// 운영체제 마우스 가속을 끈 원시 입력을 먼저 요청하고, 안 되면 일반 잠금으로 물러섭니다.
+function requestLock() {
+  const plain = () => { try { const q = cv.requestPointerLock(); if (q && q.catch) q.catch(() => { lockFailed = true; }); } catch (e) { lockFailed = true; } };
+  try {
+    const p = cv.requestPointerLock({ unadjustedMovement: true });
+    if (p && p.catch) p.catch(err => { if (err && err.name === 'NotSupportedError') plain(); else lockFailed = true; });
+  } catch (err) { plain(); }
+}
+// 잠금 상태의 마우스 이동. 지원하면 pointerrawupdate(더 빠른 원시 이벤트)를 씁니다.
+const RAW = 'onpointerrawupdate' in window;
+function lockedMove(e) {
+  if (!locked() || e.pointerType !== 'mouse' || S.state !== 'aim') return;
+  if (performance.now() - lockAt < 60) return;                        // 잠금 직후 튀는 값 무시
+  const mx = e.movementX, my = e.movementY;
+  if (Math.abs(mx) > 250 || Math.abs(my) > 250) return;               // 비정상적으로 큰 점프 무시
+  addInput(mx, my, 'lock');
+}
+if (RAW) cv.addEventListener('pointerrawupdate', lockedMove);
 cv.addEventListener('pointerdown', e => {
   audio();
   if (S.state === 'result' && S.stateT > 0.6) { afterResult(); return; }
   if (S.state !== 'aim') return;
-  if (e.pointerType === 'mouse' && canLock && !lockFailed && !locked()) {
-    try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => { lockFailed = true; }); } catch (err) { lockFailed = true; }
-    return;
-  }
+  if (e.pointerType === 'mouse' && canLock && !lockFailed && !locked()) { requestLock(); return; }
   if (e.pointerType === 'mouse' && locked()) { fire(); return; }
   drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, mouse: e.pointerType === 'mouse' };
   try { cv.setPointerCapture(e.pointerId); } catch (err) {}
 });
 cv.addEventListener('pointermove', e => {
-  if (locked() && e.pointerType === 'mouse') { if (S.state === 'aim') nudge(e.movementX * 0.025 * DEG, -e.movementY * 0.025 * DEG); return; }
+  if (locked() && e.pointerType === 'mouse') { if (!RAW) lockedMove(e); return; }
   if (!drag || drag.id !== e.pointerId) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
-  const k = (drag.mouse ? 0.03 : 0.05) * DEG;
-  if (S.state === 'aim') nudge(dx * k, -dy * k);
+  if (S.state === 'aim') addInput(dx, dy, drag.mouse ? 'drag' : 'touch');
 });
 cv.addEventListener('pointerup', e => {
   if (!drag || drag.id !== e.pointerId) return;
@@ -777,6 +839,7 @@ cv.addEventListener('pointerup', e => {
 });
 addEventListener('keydown', e => {
   const k = e.key;
+  if (e.target && e.target.closest && e.target.closest('input, select, textarea')) return;
   if (k === 'm' || k === 'M') { toggleMute(); return; }
   if (k === 'Shift') S.holding = true;
   if (S.state === 'result' && (k === ' ' || k === 'Enter') && S.stateT > 0.6) { e.preventDefault(); afterResult(); return; }
@@ -813,7 +876,16 @@ function showTitle() {
     <ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
     ${best ? `<p class="sub">${L().myBest(best.toLocaleString())}</p>` : ''}
     <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button></div>
+    <div class="settings">
+      <label for="sens">${touchUI ? L().sensTouch : L().sens}</label>
+      <input id="sens" type="range" min="0.3" max="3" step="0.1" value="${SENS}">
+      <output id="sensV">${SENS.toFixed(1)}×</output>
+      <label class="chk"><input id="smooth" type="checkbox" ${SMOOTH ? 'checked' : ''}> ${L().smooth}</label>
+    </div>
     <p class="note"><a href="classic.html" style="color:#9fe9ff">${L().classic}</a></p>`);
+  const sens = card.querySelector('#sens'), sensV = card.querySelector('#sensV');
+  sens.addEventListener('input', () => { SENS = +sens.value; sensV.textContent = SENS.toFixed(1) + '×'; store.set('bullet.sens', String(SENS)); });
+  card.querySelector('#smooth').addEventListener('change', e => { SMOOTH = e.target.checked; store.set('bullet.smooth', SMOOTH ? '1' : '0'); });
   card.querySelector('#rank').addEventListener('click', showRanking);
   card.querySelector('#lang').addEventListener('click', () => {
     LANG = LANG === 'ko' ? 'en' : 'ko'; store.set('bullet.lang', LANG); document.documentElement.lang = LANG; showTitle(); applyStaticText();
@@ -827,6 +899,7 @@ function applyStaticText() {
 /* ───────────── 업데이트 ───────────── */
 function update(rdt) {
   S.stateT += rdt;
+  applyAim(rdt);
   // 숨: 참는 동안 줄고, 다 쓰면 한동안 크게 흔들립니다.
   if (S.holding && !S.winded && S.state === 'aim') { S.breath -= rdt / 4; if (S.breath <= 0) { S.breath = 0; S.winded = true; } }
   else { S.breath = Math.min(1, S.breath + rdt / 3); if (S.winded && S.breath > 0.5) S.winded = false; }
@@ -1161,7 +1234,7 @@ document.addEventListener('visibilitychange', () => {
   if (!actx) return;
   if (document.hidden) actx.suspend(); else if (!muted) actx.resume();
 });
-S.debug = { predict, targetPos, quality: () => Q }; // 테스트용
+S.debug = { predict, targetPos, quality: () => Q, setAim, addInput, smooth: v => { SMOOTH = v; } }; // 테스트용
 resize();
 makeStage(1);
 applyStaticText();
