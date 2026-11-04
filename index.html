@@ -605,7 +605,7 @@ function gameOver() {
   const sharecard = card.querySelector('#sharecard'), sharestatus = card.querySelector('#sharestatus');
   sharecard.textContent = shareText();
   card.querySelector('#share').addEventListener('click', () => shareResult(sharestatus, sharecard));
-  card.querySelector('#go2').addEventListener('click', () => startGame());
+  card.querySelector('#go2').addEventListener('click', startFromButton);
   const nick = card.querySelector('#nick'), where = card.querySelector('#where');
   nick.value = store.get('bullet.name') || '';
   const form = card.querySelector('#sub'), status = card.querySelector('#status'), send = card.querySelector('#send');
@@ -1016,16 +1016,21 @@ function applyAim(rdt) {
 }
 
 const canLock = 'requestPointerLock' in cv && !touchUI;
-let lockFailed = false, drag = null, lockAt = 0;
+// 잠금 실패는 일시적일 수 있어서(예: Esc 직후 브라우저 대기 시간) 바로 포기하지 않습니다.
+// 연속 2번 실패하면 이 환경은 잠금이 안 된다고 보고 '드래그 조준 + 클릭 발사'로 바꾸고, 한 번이라도 성공하면 다시 잠금을 씁니다.
+let lockFails = 0, drag = null, lockAt = 0;
+const lockUnavailable = () => lockFails >= 2;
 const locked = () => document.pointerLockElement === cv;
-document.addEventListener('pointerlockerror', () => { lockFailed = true; });
-document.addEventListener('pointerlockchange', () => { lockAt = performance.now(); });
+const lockFail = () => { lockFails++; };
+document.addEventListener('pointerlockerror', lockFail);
+document.addEventListener('pointerlockchange', () => { lockAt = performance.now(); if (locked()) lockFails = 0; });
 // 운영체제 마우스 가속을 끈 원시 입력을 먼저 요청하고, 안 되면 일반 잠금으로 물러섭니다.
 function requestLock() {
-  const plain = () => { try { const q = cv.requestPointerLock(); if (q && q.catch) q.catch(() => { lockFailed = true; }); } catch (e) { lockFailed = true; } };
+  if (!canLock || lockUnavailable() || locked()) return;
+  const plain = () => { try { const q = cv.requestPointerLock(); if (q && q.catch) q.catch(lockFail); } catch (e) { lockFail(); } };
   try {
     const p = cv.requestPointerLock({ unadjustedMovement: true });
-    if (p && p.catch) p.catch(err => { if (err && err.name === 'NotSupportedError') plain(); else lockFailed = true; });
+    if (p && p.catch) p.catch(err => { if (err && err.name === 'NotSupportedError') plain(); else lockFail(); });
   } catch (err) { plain(); }
 }
 // 잠금 상태의 마우스 이동. 지원하면 pointerrawupdate(더 빠른 원시 이벤트)를 씁니다.
@@ -1042,7 +1047,7 @@ cv.addEventListener('pointerdown', e => {
   audio();
   if (S.state === 'result' && S.stateT > SKIP_AFTER) { afterResult(); return; }
   if (S.state !== 'aim') return;
-  if (e.pointerType === 'mouse' && canLock && !lockFailed && !locked()) { requestLock(); return; }
+  if (e.pointerType === 'mouse' && canLock && !lockUnavailable() && !locked()) { requestLock(); return; }
   if (e.pointerType === 'mouse' && locked()) { fire(); return; }
   drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0, mouse: e.pointerType === 'mouse' };
   try { cv.setPointerCapture(e.pointerId); } catch (err) {}
@@ -1064,7 +1069,7 @@ addEventListener('keydown', e => {
   if (k === 'm' || k === 'M') { toggleMute(); return; }
   if (k === 'Shift') S.holding = true;
   if (S.state === 'result' && (k === ' ' || k === 'Enter') && S.stateT > SKIP_AFTER) { e.preventDefault(); afterResult(); return; }
-  if ((S.state === 'title') && (k === 'Enter')) { startGame(); return; }
+  if ((S.state === 'title') && (k === 'Enter')) { startFromButton(); return; }
   if (S.state !== 'aim') return;
   const st = (e.altKey ? 0.2 : 0.02) * DEG;
   if (k === 'ArrowLeft') { nudge(-st, 0); e.preventDefault(); }
@@ -1086,9 +1091,11 @@ muteBtn.addEventListener('click', e => { e.stopPropagation(); toggleMute(); });
 muteBtn.addEventListener('pointerdown', e => e.stopPropagation());
 
 const overlay = document.getElementById('overlay'), card = document.getElementById('card');
+// 시작·다시 도전 버튼을 누르는 그 클릭으로 마우스 잠금까지 끝내서, 게임 화면의 첫 클릭이 바로 발사되게 합니다.
+function startFromButton() { requestLock(); startGame(); }
 function showCard(html) {
   card.innerHTML = html; overlay.classList.remove('hidden');
-  const go = card.querySelector('#go'); if (go) go.addEventListener('click', startGame);
+  const go = card.querySelector('#go'); if (go) go.addEventListener('click', startFromButton);
 }
 function showTitle() {
   showCard(`<button class="lang ghost" id="lang">${L().langToggle}</button>
@@ -1437,7 +1444,7 @@ function updateHud() {
     (T.amp ? `<div class="row"><span></span><span>${L().moving}</span></div>` : '') +
     (S.feedback ? `<div class="sep"></div><div class="fb">${S.feedback}</div>` : '');
   if (html !== lastInfo) { infoEl.innerHTML = html; lastInfo = html; }
-  const needLock = S.state === 'aim' && !touchUI && canLock && !lockFailed && !locked();
+  const needLock = S.state === 'aim' && !touchUI && canLock && !lockUnavailable() && !locked();
   hintEl.hidden = !needLock; if (needLock) hintEl.textContent = L().lockHint;
   const bl = S.winded ? L().breathOut : S.holding ? L().breathHold : L().breath, bw = Math.round(S.breath * 50) * 2 + '%', bc = S.winded ? '#ff8a8a' : '#9fe9ff';
   if (breathLabel.textContent !== bl) breathLabel.textContent = bl;
