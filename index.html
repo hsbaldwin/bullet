@@ -190,6 +190,8 @@ addEventListener('resize', resize);
 
 /* ───────────── 상수 ───────────── */
 const G = 9.8, V0 = 400, EYE = 1.55, WIND_LAT = 1.6, PHYS_DT = 1 / 600;
+// 화면에서 보이는 탄속(m/s). 명중·빗나감·거리에 상관없이 모든 탄이 같은 빠르기로 날아갑니다.
+const VIS_SPEED = 170;
 const DEG = Math.PI / 180;
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -499,7 +501,7 @@ function fire() {
   let near = false;
   if (P.reach) { const tp = targetPos(S.time + P.t); near = Math.hypot(P.x - tp.x, P.y - tp.y) <= S.target.R + 1.0; }
   S.bullet.near = near;
-  S.tsBase = clamp(P.t / (near ? 0.8 : 0.3), 0.05, 1); // 실제 화면에서 보이는 비행 시간: 명중권 0.8초, 그 외 0.3초
+  S.tsBase = VIS_SPEED / V0; // 일정한 시간 배율 = 일정한 겉보기 탄속(명중권 탄만 표적 직전에 추가 슬로모션)
   S.trail = []; S.rings = []; S.nextRing = 4; S.physAcc = 0;
   S.ammo--; S.shots++; S.flash = 0.08; S.shake = 0.5; S.feedback = '';
   S.popup = null; bannerEl.style.opacity = 0; bannerT = 0; // 발사하면 화면 중앙을 비웁니다
@@ -1218,7 +1220,8 @@ function update(rdt) {
     if (b.near && prog > 0.7 && !b.whoosh) { b.whoosh = true; sfx.whoosh(); }
   } else if (S.state === 'result' && S.result.hit) tsGoal = S.stateT < 0.35 ? 0.05 : 0.6;
   S.ts = S.state === 'flight' && S.stateT < 0.02 ? tsGoal : damp(S.ts, tsGoal, 8, rdt);
-  const dt = rdt * S.ts;
+  // 비행 중에는 한 프레임이 진행시킬 수 있는 시간을 1/30초로 제한해서, 프레임이 잠깐 멈춰도 탄이 순간이동하지 않게 합니다.
+  const dt = (S.state === 'flight' ? Math.min(rdt, 1 / 30) : rdt) * S.ts;
   if (S.target) S.time += dt;
 
   if (S.state === 'fired' && S.stateT > 0.08) { setState('flight'); S.ts = S.tsBase; }
@@ -1560,7 +1563,7 @@ function updateHud() {
 // 프레임 시간이 길게 이어지면 해상도를 한 단계 낮추고, 충분히 빠르면 다시 올립니다.
 let ema = 16.7, slowT = 0, fastT = 0, lockSlowT = 0;
 function adapt(rdt) {
-  if (S.state === 'title' || S.state === 'gameover') return;
+  if (S.state !== 'aim' && S.state !== 'flight') return;
   ema += (rdt * 1000 - ema) * 0.05;
   // 마우스 고정 중 프레임이 계속 느리면(평균 24ms↑가 1초) 해상도보다 먼저 고정을 풀고 '드래그 조준 + 클릭 발사'로 바꿉니다.
   if (locked()) {
@@ -1573,6 +1576,7 @@ function adapt(rdt) {
     return; // 고정 중에는 해상도를 건드리지 않습니다(느린 원인이 고정일 수 있어서)
   }
   if (ema > 24) { slowT += rdt; fastT = 0; } else if (ema < 18.5) { fastT += rdt; slowT = 0; } else { slowT = fastT = 0; }
+  if (S.state !== 'aim') return; // 해상도 변경(화면 다시 만들기)은 조준 중에만: 비행 중 끊김 방지
   if (slowT > 1 && Q > Q_MIN) { Q = Math.max(Q_MIN, +(Q - 0.15).toFixed(2)); slowT = 0; ema = 16.7; resize(); }
   else if (fastT > 8 && Q < Q_MAX) { Q = Math.min(Q_MAX, +(Q + 0.15).toFixed(2)); fastT = 0; resize(); }
 }
