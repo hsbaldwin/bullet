@@ -471,6 +471,7 @@ function predict(yaw, pitch) {
 }
 
 function fire() {
+  if (S.state === 'result' && S.stateT > SKIP_AFTER) { afterResult(); return; } // 결과 화면에서 발사 = 바로 다음 발 준비
   if (S.state !== 'aim' || S.ammo <= 0) return;
   audio();
   const a = aimDir(), d = dirFrom(a.yaw, a.pitch);
@@ -479,7 +480,7 @@ function fire() {
   let near = false;
   if (P.reach) { const tp = targetPos(S.time + P.t); near = Math.hypot(P.x - tp.x, P.y - tp.y) <= S.target.R + 1.0; }
   S.bullet.near = near;
-  S.tsBase = clamp(P.t / (near ? 1.1 : 0.45), 0.05, 1); // 실제 화면에서 보이는 비행 시간: 명중권 1.1초, 그 외 0.45초
+  S.tsBase = clamp(P.t / (near ? 0.8 : 0.3), 0.05, 1); // 실제 화면에서 보이는 비행 시간: 명중권 0.8초, 그 외 0.3초
   S.trail = []; S.rings = []; S.nextRing = 4; S.physAcc = 0;
   S.ammo--; S.shots++; S.flash = 0.08; S.shake = 0.5; S.feedback = '';
   sfx.shot();
@@ -544,6 +545,8 @@ function onMiss() {
 }
 
 /* ───────────── 진행 ───────────── */
+// 발사 간격: 결과 화면 유지 시간(명중/빗나감)과, 이 시간이 지나면 클릭·Space·발사 버튼으로 바로 넘길 수 있는 시점
+const RESULT_HIT = 1.4, RESULT_MISS = 0.6, SKIP_AFTER = 0.2;
 function setState(s) { S.state = s; S.stateT = 0; }
 const bannerEl = document.getElementById('banner'); let bannerT = 0;
 function banner(t, p, d) { bannerEl.querySelector('h2').textContent = t; bannerEl.querySelector('p').textContent = p; bannerEl.style.opacity = 1; bannerT = d; }
@@ -1037,7 +1040,7 @@ function lockedMove(e) {
 if (RAW) cv.addEventListener('pointerrawupdate', lockedMove);
 cv.addEventListener('pointerdown', e => {
   audio();
-  if (S.state === 'result' && S.stateT > 0.6) { afterResult(); return; }
+  if (S.state === 'result' && S.stateT > SKIP_AFTER) { afterResult(); return; }
   if (S.state !== 'aim') return;
   if (e.pointerType === 'mouse' && canLock && !lockFailed && !locked()) { requestLock(); return; }
   if (e.pointerType === 'mouse' && locked()) { fire(); return; }
@@ -1060,7 +1063,7 @@ addEventListener('keydown', e => {
   if (e.target && e.target.closest && e.target.closest('input, select, textarea')) return;
   if (k === 'm' || k === 'M') { toggleMute(); return; }
   if (k === 'Shift') S.holding = true;
-  if (S.state === 'result' && (k === ' ' || k === 'Enter') && S.stateT > 0.6) { e.preventDefault(); afterResult(); return; }
+  if (S.state === 'result' && (k === ' ' || k === 'Enter') && S.stateT > SKIP_AFTER) { e.preventDefault(); afterResult(); return; }
   if ((S.state === 'title') && (k === 'Enter')) { startGame(); return; }
   if (S.state !== 'aim') return;
   const st = (e.altKey ? 0.2 : 0.02) * DEG;
@@ -1131,18 +1134,18 @@ function update(rdt) {
     const b = S.bullet, T = S.target, prog = b.z / T.z;
     tsGoal = S.tsBase * (b.near && prog > 0.75 && prog < 1.05 ? 0.45 : 1);
     if (b.near && prog > 0.7 && !b.whoosh) { b.whoosh = true; sfx.whoosh(); }
-  } else if (S.state === 'result' && S.result.hit) tsGoal = S.stateT < 0.6 ? 0.05 : 0.6;
+  } else if (S.state === 'result' && S.result.hit) tsGoal = S.stateT < 0.35 ? 0.05 : 0.6;
   S.ts = S.state === 'flight' && S.stateT < 0.02 ? tsGoal : damp(S.ts, tsGoal, 8, rdt);
   const dt = rdt * S.ts;
   if (S.target) S.time += dt;
 
-  if (S.state === 'fired' && S.stateT > 0.12) { setState('flight'); S.ts = S.tsBase; }
+  if (S.state === 'fired' && S.stateT > 0.08) { setState('flight'); S.ts = S.tsBase; }
   if (S.state === 'flight') {
     S.physAcc += dt;
     while (S.physAcc >= PHYS_DT && S.state === 'flight') { S.physAcc -= PHYS_DT; physStep(); }
   }
   if (S.state === 'result' && S.bullet && S.bullet.stuck) { const tp = targetPos(); S.bullet.x = tp.x + S.bullet.dx; S.bullet.y = tp.y + S.bullet.dy; }
-  if (S.state === 'result' && S.stateT > (S.result.hit ? 2.6 : 1.6)) afterResult();
+  if (S.state === 'result' && S.stateT > (S.result.hit ? RESULT_HIT : RESULT_MISS)) afterResult();
 
   for (const p of S.particles) { p.vy -= G * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; p.life -= dt;
     if (p.y < 0.02) { p.y = 0.02; p.vy *= -0.3; p.vx *= 0.6; p.vz *= 0.6; } }
@@ -1180,7 +1183,7 @@ function cameraFor() {
     setCam(cx, cyy, cz, Math.atan2(tp.x - cx, T.z - cz), Math.atan2(tp.y - cyy, Math.hypot(tp.x - cx, T.z - cz)));
     return;
   }
-  const a = aimDir(), kick = S.state === 'fired' ? (0.12 - S.stateT) / 0.12 * 1.2 * DEG : 0;
+  const a = aimDir(), kick = S.state === 'fired' ? (0.08 - S.stateT) / 0.08 * 1.2 * DEG : 0;
   setCam(0, EYE, 0, a.yaw, a.pitch + Math.max(0, kick));
 }
 
@@ -1419,7 +1422,8 @@ let lastInfo = '';
 function updateHud() {
   const playing = S.state !== 'title' && S.state !== 'gameover' && S.target;
   infoEl.hidden = breathEl.hidden = !playing;
-  fireBtn.style.visibility = holdBtn.style.visibility = playing && S.state === 'aim' ? 'visible' : 'hidden';
+  fireBtn.style.visibility = playing && (S.state === 'aim' || (S.state === 'result' && S.stateT > SKIP_AFTER)) ? 'visible' : 'hidden';
+  holdBtn.style.visibility = playing && S.state === 'aim' ? 'visible' : 'hidden';
   if (!playing) { hintEl.hidden = true; return; }
   const T = S.target, w = S.wind, aw = Math.abs(w), lv = aw < 2 ? 0 : aw < 4 ? 1 : aw < 6 ? 2 : 3, bars = Math.min(5, Math.ceil(aw / 1.6));
   const ammo = Array.from({ length: 3 }, (_, i) => `<span class="${i < S.ammo ? '' : 'used'}"></span>`).join('');
