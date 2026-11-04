@@ -88,6 +88,10 @@
   .board .empty { display: block; text-align: center; opacity: .7; padding: 14px; }
   .note { font-size: 12px; opacity: .65; margin: 0 0 14px; }
   .lang { position: absolute; top: 12px; right: 12px; }
+  .sharecard { margin: 12px auto 4px; padding: 10px 14px; max-width: 100%; box-sizing: border-box; border-radius: 10px;
+    background: rgba(255,255,255,.06); border: 1px dashed rgba(255,255,255,.22); font-size: 15px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-all; text-align: left; user-select: text; -webkit-user-select: text; }
+  .sharestatus { min-height: 1.3em; font-size: 13px; color: #7dffa8; margin: 0 0 10px; }
   .card { position: relative; }
   .card button.lang { padding: 5px 10px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.12); color: #fff; }
   kbd { background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 5px; font-size: 12px; }
@@ -114,6 +118,7 @@
 window.BULLET_CONFIG = window.BULLET_CONFIG || {
   supabaseUrl: 'https://hzpodwzvdatadlhdplum.supabase.co',
   supabaseAnonKey: 'sb_publishable_j1_QRhqtnT3j8qwWTb1KPA__ogSUFTE',
+  shareUrl: 'https://hsbaldwin.github.io/bullet/', // 공유 문구에 들어가는 게임 주소
 };
 </script>
 <script>
@@ -196,6 +201,8 @@ const I18N = {
     pipOff: (d, up) => `예상 탄착 ${d}m ${up ? '위' : '아래'}`,
     pipShort: d => `표적 ${d}m 앞 지면에 떨어짐 ▲`,
     pipLabel: d => `표적 망원뷰 · ${d}m`,
+    share: '📤 결과 공유', shareHead: (st, sc) => `BULLET 🎯 스테이지 ${st} · ${sc}점`, shareRank: r => `🌍 세계 ${r}위`,
+    copied: '결과를 복사했어요! 친구에게 붙여 넣어 보세요', copyManual: '아래 글을 길게 눌러 복사하세요',
   },
   en: {
     tagline: 'One shot across the sky. Hit dead center.',
@@ -243,6 +250,8 @@ const I18N = {
     pipOff: (d, up) => `Predicted ${d} m ${up ? 'above' : 'below'}`,
     pipShort: d => `Lands ${d} m short ▲`,
     pipLabel: d => `Scope · ${d} m`,
+    share: '📤 Share result', shareHead: (st, sc) => `BULLET 🎯 Stage ${st} · ${sc} pts`, shareRank: r => `🌍 World #${r}`,
+    copied: 'Copied! Paste it anywhere to challenge friends', copyManual: 'Select the text below to copy it',
   },
 };
 function detectLang() {
@@ -260,7 +269,7 @@ const S = {
   state: 'title', stateT: 0, stage: 1, score: 0, streak: 0,
   ammo: 3, maxAmmo: 3, shots: 0, angle: 8, wind: 0, time: 0, ts: 1,
   target: null, bullet: null, trail: [], rings: [], particles: [], popups: [],
-  ghosts: [], ghostCur: null, marks: [], trees: [], clouds: [],
+  ghosts: [], ghostCur: null, marks: [], trees: [], clouds: [], history: [], lastRank: null,
   shake: 0, flash: 0, result: null, previewLen: 30, physAcc: 0, armed: false,
 };
 window.BULLET = S; // 디버그/테스트용
@@ -445,6 +454,7 @@ function onHit(yi, d) {
   const base = ring * 10 + Math.round(T.x * 0.5);
   const pts = Math.round(base * (first ? 1.5 : 1)) + (first && S.streak > 1 ? (S.streak - 1) * 25 : 0);
   S.score += pts;
+  S.history.push(ring);
 
   const label = ring === 10 ? L().bullseye : ring >= 8 ? L().great : ring >= 5 ? L().hit : L().close;
   popup(T.x, T.y + T.R + 0.8, label, ring === 10 ? '#ffd23f' : '#fff', 1.4);
@@ -496,7 +506,7 @@ function setState(st) { S.state = st; S.stateT = 0; }
 
 function startGame() {
   audio();
-  S.stage = 1; S.score = 0; S.streak = 0; S.angle = 8;
+  S.stage = 1; S.score = 0; S.streak = 0; S.angle = 8; S.history = []; S.lastRank = null; S.time = 0;
   S.particles = []; S.popups = [];
   makeStage(1);
   beginIntro(true);
@@ -550,6 +560,9 @@ function gameOver() {
     <p class="sub" style="margin-bottom:6px">${L().goSub}</p>
     <div class="big">${S.score.toLocaleString()}</div>
     <p class="sub" style="margin-bottom:0">${L().goStats(S.stage, best.toLocaleString(), isBest)}</p>
+    <div class="sharecard" id="sharecard"></div>
+    <div class="btns"><button id="share">${L().share}</button><button class="ghost" id="go2">${L().retry}</button></div>
+    <p class="sharestatus" id="sharestatus"></p>
     <form class="submit" id="sub">
       <input id="nick" maxlength="16" placeholder="${L().nickPh}" autocomplete="nickname" required>
       <button id="send" type="submit">${L().submit}</button>
@@ -560,6 +573,10 @@ function gameOver() {
     ${boardHtml()}
     <div class="btns"><button id="go">${L().retry}</button></div>`);
   fillCountries(card.querySelector('#country'));
+  const sharecard = card.querySelector('#sharecard'), sharestatus = card.querySelector('#sharestatus');
+  sharecard.textContent = shareText();
+  card.querySelector('#share').addEventListener('click', () => shareResult(sharestatus, sharecard));
+  card.querySelector('#go2').addEventListener('click', startGame);
   const nick = card.querySelector('#nick');
   nick.value = store.get('bullet.name') || '';
   const form = card.querySelector('#sub'), status = card.querySelector('#status'), send = card.querySelector('#send');
@@ -581,6 +598,8 @@ function gameOver() {
       const r = await LB.submit(name, country, run.score, run.stage);
       status.className = 'status ok';
       status.textContent = L().posted(Number(r.out_rank).toLocaleString(), Number(r.out_total).toLocaleString());
+      S.lastRank = Number(r.out_rank).toLocaleString();
+      sharecard.textContent = shareText();
       loadBoard('all', r.out_id);
     } catch (err) {
       send.disabled = false;
@@ -590,6 +609,38 @@ function gameOver() {
   });
   wireBoard();
   loadBoard('all');
+}
+
+/* ───────────── 결과 공유 ───────────── */
+const ringEmoji = r => r >= 9 ? '🟡' : r >= 7 ? '🔴' : r >= 5 ? '🔵' : r >= 3 ? '⚫' : '⚪';
+function shareText() {
+  const cells = S.history.map(ringEmoji).concat('❌');
+  const rows = [];
+  for (let i = 0; i < cells.length; i += 10) rows.push(cells.slice(i, i + 10).join(''));
+  const lines = [L().shareHead(S.stage, S.score.toLocaleString()), ...rows];
+  if (S.lastRank) lines.push(L().shareRank(S.lastRank));
+  lines.push(shareLink());
+  return lines.join('\n');
+}
+function shareLink() {
+  const base = (window.BULLET_CONFIG && window.BULLET_CONFIG.shareUrl) || 'https://hsbaldwin.github.io/bullet/';
+  return base;
+}
+async function shareResult(statusEl, previewEl) {
+  const text = shareText();
+  previewEl.textContent = text;
+  const touch = matchMedia('(pointer:coarse)').matches;
+  if (touch && navigator.share) {
+    try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    statusEl.textContent = L().copied;
+  } catch (e) {
+    statusEl.textContent = L().copyManual;
+    const r = document.createRange(); r.selectNodeContents(previewEl);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  }
 }
 
 /* ───────────── 랭킹 ───────────── */
