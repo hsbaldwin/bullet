@@ -1,0 +1,1485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>BULLET Classic</title>
+<meta name="description" content="Read the wind and gravity, send one bullet across the sky into the bullseye, and climb the world leaderboard. Free browser game, no install. · 바람과 중력을 읽고 한 발로 세계 랭킹에 도전하세요.">
+<link rel="canonical" href="https://hsbaldwin.github.io/bullet/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BULLET">
+<meta property="og:title" content="BULLET — One shot across the sky">
+<meta property="og:description" content="Wind. Gravity. One shot. Hit the bullseye and climb the world leaderboard. · 바람과 중력을 읽고 단 한 발로 세계 랭킹에 도전하세요.">
+<meta property="og:url" content="https://hsbaldwin.github.io/bullet/">
+<meta property="og:image" content="https://hsbaldwin.github.io/bullet/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A bullet streaking through a sunset sky into the center of an archery target">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BULLET — One shot across the sky">
+<meta name="twitter:description" content="Wind. Gravity. One shot. Climb the world leaderboard.">
+<meta name="twitter:image" content="https://hsbaldwin.github.io/bullet/og.png">
+<meta name="theme-color" content="#0b1622">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23f4f1ea'/%3E%3Ccircle cx='16' cy='16' r='12' fill='%23262626'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%231d6fd1'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23e63946'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23ffd23f'/%3E%3C/svg%3E">
+<style>
+  :root { --panel: rgba(12, 18, 32, .58); --accent: #ffcf3f; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1622; color: #fff;
+    font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas { display: block; cursor: crosshair; }
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  .panel { position: absolute; background: var(--panel); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.55; font-variant-numeric: tabular-nums; }
+  #info { left: 12px; top: 12px; min-width: 150px; }
+  #info b { color: var(--accent); }
+  #info .row { display: flex; justify-content: space-between; gap: 14px; }
+  #info .sep { height: 1px; background: rgba(255,255,255,.18); margin: 5px 0; }
+  #info .bars { color: #9fe9ff; font-size: 12px; }
+  #info .bars b { display: inline-block; width: 6px; height: 11px; margin-right: 2px; border-radius: 1px;
+    background: rgba(255,255,255,.18); vertical-align: -1px; }
+  #info .bars b.on { background: #9fe9ff; }
+  #ammo span { display: inline-block; width: 6px; height: 15px; margin-right: 3px; border-radius: 3px 3px 1px 1px;
+    background: linear-gradient(#ffe39a, #c8902b); vertical-align: -3px; }
+  #ammo span.used { background: rgba(255,255,255,.18); }
+  #angle { left: 12px; bottom: 12px; font-size: 20px; font-weight: 700; }
+  #angle small { display: block; font-size: 11px; font-weight: 400; opacity: .75; }
+  #angle em { display: block; font-style: normal; font-size: 12px; font-weight: 600; margin-top: 2px; max-width: min(78vw, 420px); }
+  #mute { position: absolute; right: 12px; bottom: 12px; pointer-events: auto; background: var(--panel); color: #fff;
+    border: 0; border-radius: 10px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+  #banner { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); text-align: center;
+    text-shadow: 0 2px 12px rgba(0,0,0,.6); transition: opacity .35s; opacity: 0; white-space: nowrap; }
+  #banner h2 { margin: 0; font-size: clamp(30px, 7vw, 54px); letter-spacing: .06em; }
+  #banner p { margin: 6px 0 0; font-size: clamp(14px, 3.4vw, 18px); opacity: .92; }
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(8,12,24,.55), rgba(4,6,14,.85)); }
+  #overlay.hidden { display: none; }
+  .card { width: min(440px, calc(100vw - 32px)); box-sizing: border-box; text-align: center; padding: 28px 22px;
+    background: rgba(14, 20, 36, .82); border: 1px solid rgba(255,255,255,.12); border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .card h1 { margin: 0 0 4px; font-size: 42px; letter-spacing: .12em; color: var(--accent); }
+  .card .sub { margin: 0 0 18px; opacity: .85; }
+  .card ul { text-align: left; margin: 0 0 20px; padding-left: 20px; line-height: 1.7; font-size: 14px; opacity: .92; }
+  .card .big { font-size: 40px; font-weight: 800; color: var(--accent); margin: 6px 0; }
+  .card button { pointer-events: auto; background: var(--accent); color: #1b1300; border: 0; border-radius: 999px;
+    padding: 12px 34px; font-size: 17px; font-weight: 800; cursor: pointer; letter-spacing: .04em; }
+  .card button:hover { filter: brightness(1.08); }
+  .card { max-height: calc(100% - 32px); overflow-y: auto; touch-action: pan-y; }
+  .card .btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .card button.ghost { background: rgba(255,255,255,.12); color: #fff; }
+  .card button:disabled { opacity: .5; cursor: default; filter: none; }
+  .card h3 { margin: 18px 0 8px; font-size: 15px; letter-spacing: .04em; }
+  .submit { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 14px 0 6px; text-align: left; }
+  .submit input { pointer-events: auto; user-select: text; -webkit-user-select: text; min-width: 0;
+    background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.2); border-radius: 10px;
+    padding: 10px 12px; font: inherit; font-size: 15px; }
+  .submit button { padding: 10px 18px; font-size: 15px; }
+  .status { min-height: 1.4em; font-size: 13px; margin: 4px 0 0; opacity: .9; }
+  .status.err { color: #ff9b9b; } .status.ok { color: #7dffa8; }
+  .board { list-style: none; margin: 0 0 16px; padding: 0; text-align: left; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .board li { display: grid; grid-template-columns: 2.2em 2.6em 1fr auto; gap: 8px; align-items: center;
+    padding: 7px 8px; border-radius: 8px; }
+  .board li:nth-child(odd) { background: rgba(255,255,255,.04); }
+  .board li.me { background: rgba(255,207,63,.22); outline: 1px solid rgba(255,207,63,.6); }
+  .board .rk { font-weight: 800; text-align: center; }
+  .board .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .board .nm small { opacity: .6; margin-left: 6px; }
+  .board .sc { font-weight: 800; color: var(--accent); }
+  .board .empty { display: block; grid-column: 1 / -1; text-align: center; opacity: .7; padding: 14px; }
+  .note { font-size: 12px; opacity: .65; margin: 0 0 14px; }
+  .lang { position: absolute; top: 12px; right: 12px; }
+  .sharecard { margin: 12px auto 4px; padding: 10px 14px; max-width: 100%; box-sizing: border-box; border-radius: 10px;
+    background: rgba(255,255,255,.06); border: 1px dashed rgba(255,255,255,.22); font-size: 15px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-all; text-align: left; user-select: text; -webkit-user-select: text; }
+  .sharestatus { min-height: 1.3em; font-size: 13px; color: #7dffa8; margin: 0 0 10px; }
+  .card { position: relative; }
+  .card button.lang { padding: 5px 10px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.12); color: #fff; }
+  kbd { background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 5px; font-size: 12px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="info" class="panel"></div>
+  <div id="angle" class="panel"></div>
+  <div id="banner"><h2></h2><p></p></div>
+  <button id="mute" title="Sound (M)">🔊</button>
+</div>
+
+<div id="overlay">
+  <div class="card" id="card"></div>
+</div>
+
+<script>
+// ── 세계 랭킹 서버 설정 ──
+// Supabase 프로젝트의 Project URL과 공개 키(publishable 또는 anon key)를 넣으면 세계 랭킹이 켜집니다. (README 참고)
+// 비워 두면 이 기기에만 기록이 저장됩니다.
+window.BULLET_CONFIG = window.BULLET_CONFIG || {
+  // 2D 클래식은 세계 랭킹(1인칭 메인 게임 전용)에 섞이지 않도록 이 기기 랭킹만 씁니다.
+  supabaseUrl: '',
+  supabaseAnonKey: '',
+  shareUrl: 'https://hsbaldwin.github.io/bullet/', // 공유 문구에 들어가는 게임 주소
+};
+</script>
+<script>
+(() => {
+'use strict';
+
+/* ───────────── 기본 설정 ───────────── */
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+}
+addEventListener('resize', resize);
+resize();
+
+const G = 9.8;            // 중력 (m/s²)
+const V0 = 70;            // 총구 속도 (m/s)
+const PIVOT = { x: 0, y: 1.45 };
+const BARREL = 1.25;      // 총열 길이 (m)
+const WIND_K = 0.35;      // 바람 → 가속도 계수
+const PHYS_DT = 1 / 240;  // 물리 고정 스텝
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const damp = (a, b, rate, dt) => lerp(a, b, 1 - Math.exp(-rate * dt));
+
+let best = 0;
+try { best = +localStorage.getItem('bullet.best') || 0; } catch (e) {}
+
+/* ───────────── 다국어 (한국어 / English) ───────────── */
+const I18N = {
+  ko: {
+    tagline: '허공을 가르는 단 한 발 — 표적의 중심을 꿰뚫어라',
+    rules: [
+      '<b>조준</b>: 마우스를 움직여 각도를 맞추고 <b>클릭</b>으로 발사<br>(모바일: 드래그 후 손을 떼면 발사, 키보드 <kbd>↑</kbd><kbd>↓</kbd> 미세조정 · <kbd>Space</kbd> 발사)',
+      '탄환은 <b>중력</b>으로 떨어지고 <b>바람</b>에 밀립니다',
+      '스테이지마다 탄 3발. 명중하면 다음 스테이지, 모두 놓치면 게임 오버',
+      '오른쪽 위 망원뷰의 <b>예상 탄착 표시</b>로 조준하세요',
+      '첫 발 명중 시 ×1.5 보너스, 연속 원샷은 추가 점수!',
+    ],
+    myBest: v => `내 최고 기록 ${v}`,
+    start: '사격 시작', rankingBtn: '🌍 랭킹 보기', langToggle: 'English', fpsLink: '← 메인 게임(1인칭)으로',
+    bullseye: '불스아이!', great: '훌륭해요!', hit: '명중!', close: '아슬아슬!',
+    ringPts: (r, p, f) => `${r}점 링 · +${p}${f ? ' (원샷 ×1.5)' : ''}`,
+    streak: (n, b) => `연속 원샷 ${n}회! +${b}`,
+    miss: '빗나감',
+    missOver: (d, up) => `표적 중심보다 ${d}m ${up ? '위' : '아래'}로 지나감`,
+    missShort: d => `표적 ${d}m 앞 지면에 착탄`,
+    hintTiming: '각도는 거의 맞아요. 표적 움직임에 맞춰 타이밍을 조절해 보세요',
+    hintAdj: (deg, up) => `힌트: 각도를 약 ${deg}° ${up ? '올려' : '내려'} 보세요`,
+    introS1: '바람 없음 · 정지 표적', introWind: '바람이 불기 시작합니다', introMoving: '표적이 움직입니다!',
+    introInfo: (d, w) => `거리 ${d}m · 바람 ${w}m/s`,
+    goSub: '탄약을 모두 소진했습니다',
+    goStats: (st, b, n) => `도달 스테이지 ${st} · 내 최고 기록 ${b}${n ? ' 🎉 신기록!' : ''}`,
+    nickPh: '닉네임 (최대 16자)', submit: '기록 등록',
+    statusOnline: '닉네임을 정하고 세계 랭킹에 올리세요. 한 사람당 한 줄, 최고 기록만 남아요', statusLocal: '이 기기의 랭킹에 기록됩니다',
+    hWorld: '🌍 세계 랭킹', hLocal: '📱 이 기기 랭킹', retry: '다시 도전',
+    zero: '0점 기록은 등록할 수 없어요', needNick: '닉네임을 입력하세요', sending: '등록 중…',
+    savedLocal: '이 기기 랭킹에 저장했어요', keptLocal: b => `기존 최고 기록(${b}점)이 더 높아서 그대로 두었어요`,
+    postedBest: (r, t) => `최고 기록 등록! 세계 ${r}위 (${t}명 중)`,
+    postedKept: (b, r) => `내 최고 기록(${b}점)보다 낮아 랭킹은 그대로예요 · 현재 세계 ${r}위`,
+    whereFrom: (f, c) => `접속 위치: ${f} ${c}`, myRecord: (n, s, r) => `등록된 내 기록 ${n} ${s}점 (${r}위)`,
+    errNameTaken: '이미 다른 사람이 쓰는 닉네임이에요', errIpLimit: '이 네트워크에서 새 플레이어 등록이 너무 많아요. 내일 다시 시도하세요',
+    postFail: '등록하지 못했어요: ', loadFail: '랭킹을 불러오지 못했어요: ',
+    errTimeout: '서버 응답이 없어요. 잠시 후 다시 시도하세요', errRate: '잠시 후 다시 시도하세요 (연속 등록 제한)',
+    errImplausible: '비정상적인 점수로 판단되었어요', errName: '닉네임은 1~16자여야 해요',
+    errNet: '서버에 연결할 수 없어요', errOutdated: '서버 설정이 최신이 아니에요 (setup.sql 다시 실행 필요)',
+    loading: '불러오는 중…',
+    localNote: '세계 랭킹 서버가 아직 연결되지 않아 이 기기의 기록만 보여요',
+    empty: '아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!',
+    rankTitle: '🌍 랭킹', rankSubOnline: '전 세계 사수들의 최고 기록 · 1인 1기록', rankSubLocal: '이 기기에서 등록한 기록',
+    back: '뒤로', countryOther: '알 수 없음',
+    hudScore: '점수', hudAmmo: '탄약', hudDist: '거리', hudHeight: '표적 높이', hudWind: '바람', windNone: '없음',
+    windLv: ['약함', '보통', '강함', '매우 강함'], windEffect: '바람 영향', windEffVal: (d, up) => d === '0.0' ? '거의 없음' : `탄착 ${d}m ${up ? '위' : '아래'}`,
+    pred: (inside, d, up, t) => `예상 탄착: ${inside ? '표적 안 · ' : ''}중심보다 ${d}m ${up ? '위' : '아래'} · ${t}초 후 도달`,
+    predMoving: '표적이 움직여요. 도달 시간 동안의 이동을 고려하세요',
+    predShort: d => `예상 탄착: 표적 ${d}m 앞 지면. 각도를 올리세요`,
+    ctrlTouch: '드래그로 조준 · 손을 떼면 발사', ctrlMouse: '마우스 조준 · 클릭 발사 · ↑↓ 미세조정',
+    pipOff: (d, up) => `예상 탄착 ${d}m ${up ? '위' : '아래'}`,
+    pipShort: d => `표적 ${d}m 앞 지면에 떨어짐 ▲`,
+    pipLabel: d => `표적 망원뷰 · ${d}m`,
+    share: '📤 결과 공유', shareHead: (st, sc) => `BULLET 🎯 스테이지 ${st} · ${sc}점`, shareRank: r => `🌍 세계 ${r}위`,
+    copied: '결과를 복사했어요! 친구에게 붙여 넣어 보세요', copyManual: '아래 글을 길게 눌러 복사하세요',
+  },
+  en: {
+    tagline: 'One shot across the sky. Hit dead center.',
+    rules: [
+      '<b>Aim</b>: move the mouse to set the angle, <b>click</b> to fire<br>(Mobile: drag, release to fire · Keyboard <kbd>↑</kbd><kbd>↓</kbd> fine-tune · <kbd>Space</kbd> fire)',
+      'Bullets drop with <b>gravity</b> and drift with the <b>wind</b>',
+      '3 rounds per stage. Hit to advance; miss all three and it’s game over',
+      'Line up the <b>predicted impact marker</b> in the scope (top right)',
+      'First-shot hits score ×1.5, and one-shot streaks earn bonus points',
+    ],
+    myBest: v => `Your best: ${v}`,
+    start: 'Start', rankingBtn: '🌍 Leaderboard', langToggle: '한국어', fpsLink: '← Back to the main game (first-person)',
+    bullseye: 'BULLSEYE!', great: 'Great shot!', hit: 'Hit!', close: 'Close call!',
+    ringPts: (r, p, f) => `Ring ${r} · +${p}${f ? ' (one-shot ×1.5)' : ''}`,
+    streak: (n, b) => `${n} one-shots in a row! +${b}`,
+    miss: 'Miss',
+    missOver: (d, up) => `Passed ${d} m ${up ? 'above' : 'below'} center`,
+    missShort: d => `Hit the ground ${d} m short`,
+    hintTiming: 'Your angle is right. Time the shot to the target’s movement',
+    hintAdj: (deg, up) => `Hint: ${up ? 'raise' : 'lower'} your angle by about ${deg}°`,
+    introS1: 'No wind · still target', introWind: 'The wind is picking up', introMoving: 'The target is moving!',
+    introInfo: (d, w) => `${d} m · wind ${w} m/s`,
+    goSub: 'Out of ammo',
+    goStats: (st, b, n) => `Reached stage ${st} · Best ${b}${n ? ' 🎉 New record!' : ''}`,
+    nickPh: 'Nickname (max 16)', submit: 'Post score',
+    statusOnline: 'Pick a nickname to join the world ranking. One row per player; only your best counts', statusLocal: 'Scores are saved on this device',
+    hWorld: '🌍 World ranking', hLocal: '📱 This device', retry: 'Play again',
+    zero: 'A score of 0 can’t be posted', needNick: 'Enter a nickname', sending: 'Posting…',
+    savedLocal: 'Saved on this device', keptLocal: b => `Your best (${b}) is higher, so it stays`,
+    postedBest: (r, t) => `New best posted! World #${r} of ${t} players`,
+    postedKept: (b, r) => `Lower than your best (${b}), so the ranking is unchanged · World #${r}`,
+    whereFrom: (f, c) => `Playing from: ${f} ${c}`, myRecord: (n, s, r) => `Your entry: ${n} ${s} (#${r})`,
+    errNameTaken: 'That nickname is already taken', errIpLimit: 'Too many new players from this network. Try again tomorrow',
+    postFail: 'Couldn’t post: ', loadFail: 'Couldn’t load the leaderboard: ',
+    errTimeout: 'The server didn’t answer. Try again shortly', errRate: 'Too fast. Try again in a few seconds',
+    errImplausible: 'That score looks invalid', errName: 'Nicknames must be 1–16 characters',
+    errNet: 'Can’t reach the server', errOutdated: 'The server setup is out of date (re-run setup.sql)',
+    loading: 'Loading…',
+    localNote: 'No leaderboard server is connected, so only this device’s scores are shown',
+    empty: 'No scores yet. Be the first!',
+    rankTitle: '🌍 Leaderboard', rankSubOnline: 'Best shooters around the world · one entry each', rankSubLocal: 'Scores saved on this device',
+    back: 'Back', countryOther: 'Unknown',
+    hudScore: 'Score', hudAmmo: 'Ammo', hudDist: 'Distance', hudHeight: 'Target height', hudWind: 'Wind', windNone: 'None',
+    windLv: ['Light', 'Moderate', 'Strong', 'Very strong'], windEffect: 'Wind effect', windEffVal: (d, up) => d === '0.0' ? 'negligible' : `impact ${d} m ${up ? 'higher' : 'lower'}`,
+    pred: (inside, d, up, t) => `Predicted: ${inside ? 'on target · ' : ''}${d} m ${up ? 'above' : 'below'} center · arrives in ${t}s`,
+    predMoving: 'Moving target: lead it by the flight time',
+    predShort: d => `Predicted: lands ${d} m short. Raise your angle`,
+    ctrlTouch: 'Drag to aim · release to fire', ctrlMouse: 'Mouse to aim · click to fire · ↑↓ fine-tune',
+    pipOff: (d, up) => `Predicted ${d} m ${up ? 'above' : 'below'}`,
+    pipShort: d => `Lands ${d} m short ▲`,
+    pipLabel: d => `Scope · ${d} m`,
+    share: '📤 Share result', shareHead: (st, sc) => `BULLET 🎯 Stage ${st} · ${sc} pts`, shareRank: r => `🌍 World #${r}`,
+    copied: 'Copied! Paste it anywhere to challenge friends', copyManual: 'Select the text below to copy it',
+  },
+};
+function detectLang() {
+  try { const q = new URLSearchParams(location.search).get('lang'); if (q === 'ko' || q === 'en') return q; } catch (e) {}
+  let saved = null; try { saved = localStorage.getItem('bullet.lang'); } catch (e) {}
+  if (saved === 'ko' || saved === 'en') return saved;
+  return /^ko\b/i.test(navigator.language || '') ? 'ko' : 'en';
+}
+let LANG = detectLang();
+const L = () => I18N[LANG];
+document.documentElement.lang = LANG;
+
+/* ───────────── 게임 상태 ───────────── */
+const S = {
+  state: 'title', stateT: 0, stage: 1, score: 0, streak: 0,
+  ammo: 3, maxAmmo: 3, shots: 0, angle: 8, wind: 0, time: 0, ts: 1,
+  target: null, bullet: null, trail: [], rings: [], particles: [], popups: [],
+  ghosts: [], ghostCur: null, marks: [], trees: [], clouds: [], history: [], lastRank: null,
+  shake: 0, flash: 0, result: null, previewLen: 30, physAcc: 0, armed: false,
+};
+window.BULLET = S; // 디버그/테스트용
+
+const cam = { x: 0, y: 0, z: 20 };
+const baseZ = () => clamp(Math.min(W / 32, H / 20), 10, 32);
+
+function targetY(t = S.time) {
+  const T = S.target;
+  return T.baseY + T.amp * Math.sin(T.freq * t + T.phase);
+}
+
+function makeStage(n) {
+  const rnd = Math.random;
+  const rr = (a, b) => a + rnd() * (b - a);
+  const dist = Math.min(330, 45 + n * 16 + rr(0, 18));
+  const R = Math.max(0.55, 1.35 - n * 0.055);
+  const amp = n >= 4 ? Math.min(4.5, 0.8 + (n - 4) * 0.5) : 0;
+  const bottom = n < 2 ? 0.9 : 0.9 + rr(0, Math.min(22, (n - 1) * 2.4));
+  const baseY = Math.max(bottom + R, amp + R + 0.4);
+  S.target = { x: dist, baseY, y: baseY, R, amp, freq: rr(0.5, 0.95), phase: rr(0, Math.PI * 2) };
+  S.wind = n >= 2 ? (rnd() < 0.5 ? -1 : 1) * rr(0.35, 1) * Math.min(11, 1 + n * 1.1) : 0;
+  S.previewLen = Math.max(22, 60 - n * 3);
+  S.ammo = S.maxAmmo; S.shots = 0;
+  S.ghosts = []; S.marks = []; S.hint = ''; S.trail = []; S.rings = []; S.bullet = null;
+
+  S.trees = [];
+  for (let x = 14; x < dist - 8; x += rr(9, 26)) {
+    if (Math.abs(x - dist) < 7) continue;
+    S.trees.push({ x, h: rr(4, 9), w: rr(1.6, 3), shade: rr(0, 1) });
+  }
+  S.clouds = [];
+  for (let i = 0; i < 6 + dist / 18; i++) {
+    S.clouds.push({ x: rr(-60, dist + 120), y: rr(12, 48), s: rr(2.5, 7), seed: rnd() * 10 });
+  }
+}
+
+/* ───────────── 사운드 (WebAudio 합성) ───────────── */
+let actx = null, muted = false, noiseBuf = null;
+function audio() {
+  if (!actx) {
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+    const len = actx.sampleRate * 1.5;
+    noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function noise(dur, type, freq, gain, q = 1, freqEnd) {
+  const a = audio(); if (!a || muted) return;
+  const t = a.currentTime;
+  const src = a.createBufferSource(); src.buffer = noiseBuf;
+  const f = a.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+  if (freqEnd) f.frequency.exponentialRampToValueAtTime(freqEnd, t + dur);
+  const g = a.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f).connect(g).connect(a.destination);
+  src.start(t); src.stop(t + dur);
+}
+function tone(freq, dur, type, gain, freqEnd, delay = 0) {
+  const a = audio(); if (!a || muted) return;
+  const t = a.currentTime + delay;
+  const o = a.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, t + dur);
+  const g = a.createGain(); g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+const sfx = {
+  shot() { noise(0.5, 'lowpass', 3200, 0.9, 0.7, 300); tone(140, 0.35, 'sine', 0.8, 35); noise(0.08, 'highpass', 2500, 0.5); },
+  whoosh() { noise(0.9, 'bandpass', 600, 0.25, 2, 2400); },
+  hit() { tone(320, 0.25, 'triangle', 0.5, 70); noise(0.06, 'highpass', 1800, 0.6); },
+  bull() { tone(880, 0.6, 'triangle', 0.25, null, 0.08); tone(1320, 0.8, 'triangle', 0.2, null, 0.18); },
+  dirt() { noise(0.3, 'lowpass', 900, 0.35, 0.8, 120); },
+  stage() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, 'square', 0.07, null, i * 0.08)); },
+  over() { [392, 330, 262].forEach((f, i) => tone(f, 0.35, 'sawtooth', 0.06, null, i * 0.16)); },
+};
+
+/* ───────────── 사격 & 물리 ───────────── */
+function muzzleTip(angleDeg) {
+  const a = angleDeg * Math.PI / 180;
+  return { x: PIVOT.x + Math.cos(a) * BARREL, y: PIVOT.y + Math.sin(a) * BARREL, a };
+}
+
+function integrate(b, dt, wind = S.wind) {
+  b.vx += WIND_K * wind * dt;
+  b.vy -= G * dt;
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+}
+
+// 현재 각도로 쐈을 때 표적 평면(x = T.x)을 지나는 높이와 시간을 계산
+function predict(angleDeg, wind = S.wind) {
+  const T = S.target, tip = muzzleTip(angleDeg);
+  const b = { x: tip.x, y: tip.y, vx: V0 * Math.cos(tip.a), vy: V0 * Math.sin(tip.a) };
+  let t = 0;
+  while (t < 14) {
+    const px = b.x, py = b.y;
+    integrate(b, PHYS_DT, wind); t += PHYS_DT;
+    if (b.x >= T.x) { const f = (T.x - px) / (b.x - px); return { reach: true, y: py + (b.y - py) * f, t }; }
+    if (b.y < 0) return { reach: false, x: b.x, t };
+  }
+  return { reach: false, x: b.x, t };
+}
+
+// 표적 중심(움직이는 표적은 레일 중앙)에 맞는 낮은 탄도 각도
+function solveAngle() {
+  const goal = S.target.baseY;
+  let lo = -10, hi = 45;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2, p = predict(mid);
+    if (p.reach && p.y > goal) hi = mid; else lo = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function fire() {
+  if (S.state !== 'aim' || S.ammo <= 0) return;
+  const tip = muzzleTip(S.angle);
+  S.bullet = { x: tip.x, y: tip.y, vx: V0 * Math.cos(tip.a), vy: V0 * Math.sin(tip.a), t: 0, crossed: false, whoosh: false };
+  // 표적 근처를 지나갈 탄만 슬로모션: 도착 시점의 표적 위치와 비교해 가장자리에서 1m 이내면 연출합니다.
+  const P = predict(S.angle);
+  S.bullet.slowmo = P.reach && Math.abs(P.y - targetY(S.time + P.t)) <= S.target.R + 1.0;
+  S.trail = [{ x: tip.x, y: tip.y }];
+  S.ghostCur = [{ x: tip.x, y: tip.y }];
+  S.nextRing = tip.x + 4;
+  S.ammo--; S.shots++;
+  S.physAcc = 0; S.ts = 0.35;
+  setState('flight');
+  S.flash = 0.07; S.shake = 0.45;
+  sfx.shot();
+  for (let i = 0; i < 14; i++) {
+    const sp = rand(1, 6), ang = tip.a + rand(-0.5, 0.5);
+    S.particles.push({ x: tip.x, y: tip.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp + rand(0, 1),
+      life: rand(0.6, 1.4), max: 1.4, size: rand(0.12, 0.3), color: '200,200,205', grav: -0.6, smoke: true });
+  }
+}
+
+function physStep() {
+  const b = S.bullet, T = S.target;
+  const px = b.x, py = b.y;
+  integrate(b, PHYS_DT);
+  b.t += PHYS_DT;
+
+  // 표적 평면 통과 판정
+  if (!b.crossed && px < T.x && b.x >= T.x) {
+    const f = (T.x - px) / (b.x - px);
+    const yi = py + (b.y - py) * f;
+    const d = yi - targetY();
+    b.crossed = true; b.crossDy = d;
+    if (Math.abs(d) <= T.R) { onHit(yi, d); return; }
+  }
+
+  // 트레일 & 공기 파동
+  S.trail.push({ x: b.x, y: b.y });
+  if (S.trail.length > 90) S.trail.shift();
+  const lg = S.ghostCur[S.ghostCur.length - 1];
+  if (Math.hypot(b.x - lg.x, b.y - lg.y) > 0.8) S.ghostCur.push({ x: b.x, y: b.y });
+  if (b.x >= S.nextRing) {
+    S.rings.push({ x: b.x, y: b.y, ang: Math.atan2(b.vy, b.vx), age: 0 });
+    S.nextRing += 6;
+  }
+
+  if (b.y <= 0) {
+    b.y = 0;
+    for (let i = 0; i < 22; i++) {
+      S.particles.push({ x: b.x, y: 0.05, vx: rand(-3, 3) + b.vx * 0.04, vy: rand(1.5, 6),
+        life: rand(0.5, 1.2), max: 1.2, size: rand(0.06, 0.2), color: i % 3 ? '120,92,58' : '86,140,60', grav: 1 });
+    }
+    sfx.dirt();
+    onMiss('ground');
+    return;
+  }
+  if ((b.crossed && b.x > T.x + 25) || b.x > T.x + 80 || b.t > 14) onMiss('air');
+}
+
+function onHit(yi, d) {
+  const T = S.target, b = S.bullet;
+  b.x = T.x; b.y = yi; b.stuck = true; b.stuckDy = d;
+  S.ghostCur.push({ x: b.x, y: b.y });
+  S.ghosts.push(S.ghostCur);
+  S.marks.push(d);
+  const ring = Math.max(1, 10 - Math.floor(Math.abs(d) / T.R * 10));
+  const first = S.shots === 1;
+  S.streak = first ? S.streak + 1 : 0;
+  const base = ring * 10 + Math.round(T.x * 0.5);
+  const pts = Math.round(base * (first ? 1.5 : 1)) + (first && S.streak > 1 ? (S.streak - 1) * 25 : 0);
+  S.score += pts;
+  S.history.push(ring);
+
+  const label = ring === 10 ? L().bullseye : ring >= 8 ? L().great : ring >= 5 ? L().hit : L().close;
+  popup(T.x, T.y + T.R + 0.8, label, ring === 10 ? '#ffd23f' : '#fff', 1.4);
+  popup(T.x, T.y + T.R + 0.1, L().ringPts(ring, pts, first), '#ffe8a8', 0.75);
+  if (first && S.streak > 1) popup(T.x, T.y - T.R - 0.6, L().streak(S.streak, (S.streak - 1) * 25), '#7fe0ff', 0.7);
+
+  const colors = ['244,241,234', '230,57,70', '29,111,209', '255,210,63', '150,110,70'];
+  for (let i = 0; i < 40; i++) {
+    const ang = Math.PI + rand(-1.2, 1.2) + (i % 2 ? Math.PI : 0) * 0.15;
+    const sp = rand(2, 9);
+    S.particles.push({ x: T.x, y: yi, vx: Math.cos(ang) * sp * (i % 4 === 0 ? -0.6 : 1), vy: Math.sin(ang) * sp + rand(0, 4),
+      life: rand(0.6, 1.6), max: 1.6, size: rand(0.05, 0.16), color: colors[i % colors.length], grav: 1 });
+  }
+  S.shake = 0.3;
+  sfx.hit(); if (ring === 10) sfx.bull();
+  S.result = { hit: true, ring, pts };
+  setState('result');
+}
+
+function onMiss(kind) {
+  const b = S.bullet, T = S.target;
+  S.ghostCur.push({ x: b.x, y: b.y });
+  S.ghosts.push(S.ghostCur);
+  if (S.ghosts.length > 3) S.ghosts.shift();
+  S.streak = 0;
+  let msg;
+  if (b.crossed) {
+    const d = b.crossDy;
+    msg = L().missOver(Math.abs(d).toFixed(1), d > 0);
+  } else if (kind === 'ground' && b.x < T.x) {
+    msg = L().missShort((T.x - b.x).toFixed(1));
+  } else {
+    msg = L().miss;
+  }
+  popup(b.x, b.y + 1.2, L().miss, '#ff8a8a', 1.1);
+  const need = solveAngle() - S.angle;
+  const hint = Math.abs(need) < 0.05 ? L().hintTiming : L().hintAdj(Math.abs(need).toFixed(1), need > 0);
+  S.hint = hint;
+  S.result = { hit: false, msg };
+  setState('result');
+}
+
+function popup(x, y, text, color, size) {
+  S.popups.push({ x, y, text, color, size, age: 0, life: 2.4 });
+}
+
+/* ───────────── 상태 전환 ───────────── */
+function setState(st) { S.state = st; S.stateT = 0; }
+
+function startGame() {
+  audio();
+  S.stage = 1; S.score = 0; S.streak = 0; S.angle = 8; S.history = []; S.lastRank = null; S.time = 0;
+  S.particles = []; S.popups = [];
+  makeStage(1);
+  beginIntro(true);
+  overlay.classList.add('hidden');
+}
+
+function beginIntro(snap) {
+  setState('intro');
+  const T = S.target;
+  if (snap) { cam.x = T.x; cam.y = Math.max(T.y, 0.3 * H / baseZ()); cam.z = baseZ() * 1.5; }
+  const notes = [];
+  if (S.stage === 1) notes.push(L().introS1);
+  if (S.wind !== 0 && S.stage === 2) notes.push(L().introWind);
+  if (S.target.amp > 0 && S.stage === 4) notes.push(L().introMoving);
+  if (!notes.length) notes.push(L().introInfo(S.target.x.toFixed(0), Math.abs(S.wind).toFixed(1)));
+  showBanner(`STAGE ${S.stage}`, notes.join(' · '), 2.4);
+  sfx.stage();
+}
+
+let bannerTimer = 0;
+const bannerEl = document.getElementById('banner');
+function showBanner(title, text, dur) {
+  bannerEl.querySelector('h2').textContent = title;
+  bannerEl.querySelector('p').textContent = text;
+  bannerEl.style.opacity = 1;
+  bannerTimer = dur;
+}
+
+function afterResult() {
+  if (S.result.hit) {
+    S.stage++;
+    makeStage(S.stage);
+    beginIntro(false);
+  } else if (S.ammo > 0) {
+    S.bullet = null;
+    setState('aim'); S.armed = false;
+  } else {
+    gameOver();
+  }
+}
+
+function gameOver() {
+  setState('gameover');
+  sfx.over();
+  const isBest = S.score > best;
+  if (isBest) { best = S.score; try { localStorage.setItem('bullet.best', String(best)); } catch (e) {} }
+  const run = { score: S.score, stage: S.stage, posted: false };
+  showCard(`
+    <h1>GAME OVER</h1>
+    <p class="sub" style="margin-bottom:6px">${L().goSub}</p>
+    <div class="big">${S.score.toLocaleString()}</div>
+    <p class="sub" style="margin-bottom:0">${L().goStats(S.stage, best.toLocaleString(), isBest)}</p>
+    <div class="sharecard" id="sharecard"></div>
+    <div class="btns"><button id="share">${L().share}</button><button class="ghost" id="go2">${L().retry}</button></div>
+    <p class="sharestatus" id="sharestatus"></p>
+    <form class="submit" id="sub">
+      <input id="nick" maxlength="16" placeholder="${L().nickPh}" autocomplete="nickname" required>
+      <button id="send" type="submit">${L().submit}</button>
+    </form>
+    <p class="status" id="where"></p>
+    <p class="status" id="status">${LB.on ? L().statusOnline : L().statusLocal}</p>
+    <h3>${LB.on ? L().hWorld : L().hLocal}</h3>
+    ${boardHtml()}
+    <div class="btns"><button id="go">${L().retry}</button></div>`);
+  const sharecard = card.querySelector('#sharecard'), sharestatus = card.querySelector('#sharestatus');
+  sharecard.textContent = shareText();
+  card.querySelector('#share').addEventListener('click', () => shareResult(sharestatus, sharecard));
+  card.querySelector('#go2').addEventListener('click', () => startGame());
+  const nick = card.querySelector('#nick'), where = card.querySelector('#where');
+  nick.value = store.get('bullet.name') || '';
+  const form = card.querySelector('#sub'), status = card.querySelector('#status'), send = card.querySelector('#send');
+  if (S.score <= 0) { send.disabled = true; status.textContent = L().zero; }
+
+  // 접속 위치(서버가 IP로 판단)와 이미 등록된 내 기록을 보여줍니다.
+  const showMe = m => {
+    if (!m) return;
+    let t = L().whereFrom(flag(m.country), countryName(m.country));
+    if (m.name) t += ' · ' + L().myRecord(m.name, Number(m.score).toLocaleString(), Number(m.rank).toLocaleString());
+    where.textContent = t;
+    if (m.name) { nick.value = m.name; store.set('bullet.name', m.name); }
+  };
+  if (LB.on) LB.me(playerToken()).then(showMe).catch(() => {});
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (run.posted) return;
+    const name = nick.value.replace(/\s+/g, ' ').trim();
+    if (!name) { status.className = 'status err'; status.textContent = L().needNick; return; }
+    store.set('bullet.name', name);
+    send.disabled = true; status.className = 'status'; status.textContent = L().sending;
+    if (!LB.on) {
+      const r = saveLocal(name, run.score, run.stage);
+      run.posted = true;
+      status.className = 'status ok';
+      status.textContent = r.improved ? L().savedLocal : L().keptLocal(r.best.toLocaleString());
+      loadBoard(name);
+      return;
+    }
+    try {
+      const r = await LB.submit(playerToken(), name, run.score, run.stage);
+      run.posted = true;
+      const rank = Number(r.out_rank).toLocaleString(), total = Number(r.out_total).toLocaleString();
+      status.className = 'status ok';
+      status.textContent = r.out_improved ? L().postedBest(rank, total) : L().postedKept(Number(r.out_best).toLocaleString(), rank);
+      if (r.out_improved) { S.lastRank = rank; sharecard.textContent = shareText(); } // 이번 판이 최고 기록일 때만 순위를 공유
+      showMe({ country: r.out_country, name: r.out_name, score: r.out_best, rank: r.out_rank });
+      loadBoard(r.out_name);
+    } catch (err) {
+      send.disabled = false;
+      status.className = 'status err';
+      status.textContent = L().postFail + friendlyError(err);
+    }
+  });
+  loadBoard(null);
+}
+
+/* ───────────── 결과 공유 ───────────── */
+const ringEmoji = r => r >= 9 ? '🟡' : r >= 7 ? '🔴' : r >= 5 ? '🔵' : r >= 3 ? '⚫' : '⚪';
+function shareText() {
+  const cells = S.history.map(ringEmoji).concat('❌');
+  const rows = [];
+  for (let i = 0; i < cells.length; i += 10) rows.push(cells.slice(i, i + 10).join(''));
+  const lines = [L().shareHead(S.stage, S.score.toLocaleString()), ...rows];
+  if (S.lastRank) lines.push(L().shareRank(S.lastRank));
+  lines.push(shareLink());
+  return lines.join('\n');
+}
+function shareLink() {
+  return (window.BULLET_CONFIG && window.BULLET_CONFIG.shareUrl) || 'https://hsbaldwin.github.io/bullet/';
+}
+async function shareResult(statusEl, previewEl) {
+  const text = shareText();
+  previewEl.textContent = text;
+  const touch = matchMedia('(pointer:coarse)').matches;
+  if (touch && navigator.share) {
+    try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    statusEl.textContent = L().copied;
+  } catch (e) {
+    statusEl.textContent = L().copyManual;
+    const r = document.createRange(); r.selectNodeContents(previewEl);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  }
+}
+
+/* ───────────── 랭킹 ───────────── */
+// 랭킹은 플레이어당 한 줄입니다. 브라우저마다 비밀 토큰을 하나 만들어 "내 기록"의 주인을 확인하고,
+// 서버는 토큰의 해시만 저장합니다. 국가는 서버가 접속 IP로 정합니다.
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+let TOKEN = null;
+function playerToken() {
+  if (TOKEN) return TOKEN;
+  let t = store.get('bullet.token');
+  if (!t || !/^[0-9a-f]{64}$/.test(t)) {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    t = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    store.set('bullet.token', t);
+  }
+  return (TOKEN = t);
+}
+const LB = (() => {
+  const cfg = window.BULLET_CONFIG || {};
+  const url = String(cfg.supabaseUrl || '').replace(/\/+$/, '');
+  const key = String(cfg.supabaseAnonKey || '');
+  const on = !!(url && key);
+  // 기존 anon key(JWT)는 Authorization에도 넣고, 새 publishable key(sb_publishable_…)는 apikey 헤더만 씁니다.
+  const headers = () => Object.assign({ apikey: key, 'Content-Type': 'application/json' },
+    key.startsWith('eyJ') ? { Authorization: 'Bearer ' + key } : {});
+  async function rpc(fn, args) {
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 9000);
+    try {
+      const r = await fetch(`${url}/rest/v1/rpc/${fn}`, { method: 'POST', headers: headers(), body: JSON.stringify(args), signal: ctl.signal });
+      const body = await r.json().catch(() => null);
+      if (!r.ok) throw new Error((body && (body.message || body.hint)) || ('HTTP ' + r.status));
+      return body;
+    } finally { clearTimeout(tm); }
+  }
+  const one = rows => Array.isArray(rows) ? rows[0] : rows;
+  return {
+    on,
+    top: () => rpc('top_scores', { p_limit: 50 }),
+    me: async token => one(await rpc('my_entry', { p_token: token })),
+    submit: async (token, name, score, stage) => one(await rpc('submit_score', { p_token: token, p_name: name, p_score: score, p_stage: stage })),
+  };
+})();
+
+function friendlyError(err) {
+  const m = String(err && err.message || err);
+  if (/abort/i.test(m)) return L().errTimeout;
+  if (/name taken/i.test(m)) return L().errNameTaken;
+  if (/too many players/i.test(m)) return L().errIpLimit;
+  if (/too many/i.test(m)) return L().errRate;
+  if (/implausible/i.test(m)) return L().errImplausible;
+  if (/invalid name/i.test(m)) return L().errName;
+  if (/could not find the function|schema cache|does not exist/i.test(m)) return L().errOutdated;
+  if (/fetch|network/i.test(m)) return L().errNet;
+  return m;
+}
+
+// 서버가 없을 때: 이 기기 안에서도 닉네임당 한 줄, 최고 기록만 남깁니다.
+function loadLocal() {
+  let list = [];
+  try { list = JSON.parse(store.get('bullet.local') || '[]'); } catch (e) {}
+  const by = new Map();
+  for (const r of list) {
+    if (!r || !r.name || (r.mode && r.mode !== 'normal')) continue;
+    const k = r.name.toLowerCase(), cur = by.get(k);
+    if (!cur || r.score > cur.score) by.set(k, { name: r.name, country: 'UN', score: r.score, stage: r.stage });
+  }
+  return [...by.values()].sort((a, b) => b.score - a.score);
+}
+function saveLocal(name, score, stage) {
+  const list = loadLocal();
+  const cur = list.find(r => r.name.toLowerCase() === name.toLowerCase());
+  const improved = !cur || score > cur.score;
+  if (!cur) list.push({ name, country: 'UN', score, stage });
+  else if (improved) Object.assign(cur, { name, score, stage });
+  list.sort((a, b) => b.score - a.score);
+  store.set('bullet.local', JSON.stringify(list.slice(0, 100)));
+  return { improved, best: improved ? score : cur.score };
+}
+
+const flag = c => /^[A-Z]{2}$/.test(c) && c !== 'UN' ? String.fromCodePoint(...[...c].map(ch => 127397 + ch.charCodeAt(0))) : '🌐';
+const regionCache = {};
+function regionNames() {
+  if (!(LANG in regionCache)) { try { regionCache[LANG] = new Intl.DisplayNames([LANG], { type: 'region' }); } catch (e) { regionCache[LANG] = null; } }
+  return regionCache[LANG];
+}
+const countryName = c => { if (!c || c === 'UN') return L().countryOther; try { const rn = regionNames(); return (rn && rn.of(c)) || c; } catch (e) { return c; } };
+
+function boardHtml() {
+  return `<ol class="board" id="board"><li><span class="empty">${L().loading}</span></li></ol>
+    ${LB.on ? '' : `<p class="note">${L().localNote}</p>`}`;
+}
+let boardSeq = 0;
+async function loadBoard(highlightName) {
+  const board = card.querySelector('#board'); if (!board) return;
+  const seq = ++boardSeq;
+  let rows;
+  if (LB.on) {
+    try { rows = await LB.top(); }
+    catch (err) { if (seq === boardSeq) renderBoard(board, null, null, L().loadFail + friendlyError(err)); return; }
+  } else rows = loadLocal().slice(0, 50);
+  if (seq === boardSeq) renderBoard(board, rows, highlightName);
+}
+function renderBoard(board, rows, highlightName, errMsg) {
+  board.textContent = '';
+  if (!rows || !rows.length) {
+    const li = document.createElement('li'); const sp = document.createElement('span'); sp.className = 'empty';
+    sp.textContent = errMsg || L().empty;
+    li.appendChild(sp); board.appendChild(li); return;
+  }
+  const hl = highlightName ? highlightName.toLowerCase() : null;
+  rows.forEach((r, i) => {
+    const li = document.createElement('li');
+    if (hl && r.name.toLowerCase() === hl) li.className = 'me';
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = ['🥇', '🥈', '🥉'][i] || String(i + 1);
+    const fl = document.createElement('span'); fl.textContent = flag(r.country); fl.title = countryName(r.country);
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name;
+    const st = document.createElement('small'); st.textContent = `ST.${r.stage}`; nm.appendChild(st);
+    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = Number(r.score).toLocaleString();
+    li.append(rk, fl, nm, sc); board.appendChild(li);
+  });
+  const me = board.querySelector('.me'); if (me) me.scrollIntoView({ block: 'nearest' });
+}
+function showRanking() {
+  showCard(`<h1 style="font-size:30px">${L().rankTitle}</h1>
+    <p class="sub">${LB.on ? L().rankSubOnline : L().rankSubLocal}</p>
+    ${boardHtml()}
+    <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="back">${L().back}</button></div>`);
+  card.querySelector('#back').addEventListener('click', showTitle);
+  loadBoard(store.get('bullet.name'));
+}
+
+/* ───────────── 입력 ───────────── */
+let pointerDown = false;
+function aimAt(clientX, clientY) {
+  const px = (PIVOT.x - cam.x) * cam.z + W / 2;
+  const py = H / 2 - (PIVOT.y - cam.y) * cam.z;
+  const dx = Math.max(6, clientX - px);
+  const dy = py - clientY;
+  S.angle = Math.round(clamp(Math.atan2(dy, dx) * 180 / Math.PI, -10, 85) * 10) / 10;
+}
+cv.addEventListener('pointerdown', e => {
+  audio();
+  if (S.state === 'intro') { setState('aim'); S.armed = false; return; }
+  if (S.state === 'result' && S.stateT > 0.5) { afterResult(); return; }
+  if (S.state !== 'aim') return;
+  pointerDown = true; S.armed = true;
+  if (e.pointerType !== 'mouse') aimAt(e.clientX, e.clientY);
+});
+cv.addEventListener('pointermove', e => {
+  if (S.state !== 'aim') return;
+  if (e.pointerType === 'mouse' || pointerDown) aimAt(e.clientX, e.clientY);
+});
+addEventListener('pointerup', () => {
+  if (S.state === 'aim' && pointerDown && S.armed) fire();
+  pointerDown = false;
+});
+addEventListener('keydown', e => {
+  const k = e.key;
+  if (e.target && e.target.closest && e.target.closest('input, select, textarea, button')) return;
+  if (k === 'm' || k === 'M') { toggleMute(); return; }
+  if (S.state === 'gameover' && S.stateT < 1.5) return; // 마지막 발사 직후 키 입력으로 결과 화면이 넘어가지 않게
+  if (S.state === 'title' || S.state === 'gameover') { if (k === 'Enter' || k === ' ') { e.preventDefault(); startGame(); } return; }
+  if (S.state === 'intro' && (k === ' ' || k === 'Enter')) { e.preventDefault(); setState('aim'); return; }
+  if (S.state === 'result' && (k === ' ' || k === 'Enter') && S.stateT > 0.5) { e.preventDefault(); afterResult(); return; }
+  if (S.state !== 'aim') return;
+  const step = e.shiftKey ? 1 : 0.1;
+  if (k === 'ArrowUp' || k === 'w' || k === 'W') { S.angle = Math.round(clamp(S.angle + step, -10, 85) * 10) / 10; e.preventDefault(); }
+  if (k === 'ArrowDown' || k === 's' || k === 'S') { S.angle = Math.round(clamp(S.angle - step, -10, 85) * 10) / 10; e.preventDefault(); }
+  if (k === ' ' || k === 'Enter') { e.preventDefault(); fire(); }
+});
+const muteBtn = document.getElementById('mute');
+function toggleMute() { muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊'; }
+muteBtn.addEventListener('click', e => { e.stopPropagation(); toggleMute(); });
+muteBtn.addEventListener('pointerdown', e => e.stopPropagation());
+
+const overlay = document.getElementById('overlay');
+const card = document.getElementById('card');
+function showCard(html) {
+  card.innerHTML = html;
+  overlay.classList.remove('hidden');
+  const btn = card.querySelector('#go');
+  if (btn) btn.addEventListener('click', () => startGame());
+}
+
+/* ───────────── 업데이트 ───────────── */
+function update(rdt) {
+  S.stateT += rdt;
+  const T = S.target;
+  const bz = baseZ();
+
+  // 시간 배율 (슬로모션)
+  let tsGoal = 1, tsRate = 10;
+  if (S.state === 'flight') {
+    const b = S.bullet, dx = T.x - b.x;
+    if (b.t < 0.1) tsGoal = 0.3;
+    else if (b.slowmo && dx < 12 && dx > -4) tsGoal = 0.13;
+    else if (b.slowmo && dx < 28 && dx > -4) tsGoal = 0.45;
+    else if (dx > 60 && b.t > 0.4) tsGoal = 1.5;
+    if (b.slowmo && dx < 28 && !b.whoosh) { b.whoosh = true; sfx.whoosh(); }
+  } else if (S.state === 'result') {
+    tsGoal = S.result.hit ? (S.stateT < 0.7 ? 0.06 : 0.7) : 1;
+    tsRate = S.result.hit ? 4 : 10;
+  }
+  S.ts = damp(S.ts, tsGoal, tsRate, rdt);
+  const dt = rdt * S.ts;
+
+  if (T) { S.time += dt; T.y = targetY(); }
+  if (T && (S.state === 'aim' || S.state === 'intro') && (!S.pred || S.pred.angle !== S.angle || S.pred.stage !== S.stage)) {
+    S.pred = Object.assign(predict(S.angle), { angle: S.angle, stage: S.stage });
+    const calm = predict(S.angle, 0);
+    S.windEff = Math.abs(S.wind) >= 0.05 && S.pred.reach && calm.reach ? S.pred.y - calm.y : null;
+  }
+
+  if (S.state === 'flight') {
+    S.physAcc += dt;
+    while (S.physAcc >= PHYS_DT && S.state === 'flight') { S.physAcc -= PHYS_DT; physStep(); }
+  }
+  if (S.state === 'result' && S.bullet && S.bullet.stuck) S.bullet.y = T.y + S.bullet.stuckDy;
+
+  // 파티클/링/팝업/구름
+  for (const p of S.particles) {
+    p.vy -= G * p.grav * dt * (p.smoke ? 0.1 : 1);
+    if (p.smoke) { p.vx += (S.wind * 0.3 - p.vx) * dt; p.size += dt * 0.5; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+    if (!p.smoke && p.y < 0.02) { p.y = 0.02; p.vy *= -0.3; p.vx *= 0.6; }
+  }
+  S.particles = S.particles.filter(p => p.life > 0);
+  for (const r of S.rings) r.age += dt;
+  S.rings = S.rings.filter(r => r.age < 0.7);
+  for (const p of S.popups) p.age += rdt;
+  S.popups = S.popups.filter(p => p.age < p.life);
+  for (const c of S.clouds) c.x += S.wind * 0.25 * dt;
+  updateMotes(dt);
+
+  S.shake = Math.max(0, S.shake - rdt * 1.6);
+  S.flash = Math.max(0, S.flash - rdt);
+  if (bannerTimer > 0) { bannerTimer -= rdt; if (bannerTimer <= 0) bannerEl.style.opacity = 0; }
+
+  // 상태별 진행
+  if (S.state === 'intro' && S.stateT > 2.8) { setState('aim'); S.armed = false; }
+  if (S.state === 'result' && S.stateT > (S.result.hit ? 2.6 : 2.0)) afterResult();
+
+  // 카메라
+  let gx, gy, gz, rate = 3.5;
+  const aimView = () => { gz = bz; gx = W * 0.30 / gz; gy = 0.27 * H / gz; };
+  if (S.state === 'flight') {
+    const b = S.bullet, dx = T.x - b.x;
+    const near = b.slowmo && dx < 14 && dx > -6;
+    gz = bz * (near ? 1.9 : 1.15);
+    gx = b.x + W * 0.1 / cam.z;
+    gy = near ? lerp(b.y, T.y, 0.5) : b.y;
+    gy = Math.max(gy, 0.3 * H / cam.z);
+    rate = Math.min(40, 4 + b.t * 40);
+  } else if (S.state === 'result') {
+    const b = S.bullet;
+    if (S.result.hit) {
+      gz = Math.min(bz * 2.6, 0.22 * H / T.R);
+      gx = T.x; gy = Math.max(T.y, 0.3 * H / gz);
+    } else {
+      gz = bz * 1.4; gx = b.x; gy = Math.max(b.y, 0.3 * H / gz);
+    }
+    rate = 4;
+  } else if (S.state === 'intro') {
+    if (S.stateT < 1.1) { gz = bz * 1.5; gx = T.x; gy = Math.max(T.y, 0.3 * H / gz); }
+    else { aimView(); rate = 2.4; }
+  } else if (S.state === 'title' || S.state === 'gameover') {
+    gz = bz * 0.9; gx = (T ? T.x * 0.5 : 30) + Math.sin(performance.now() / 4000) * 10; gy = 0.3 * H / gz; rate = 0.8;
+  } else {
+    aimView();
+  }
+  cam.z = damp(cam.z, gz, 3, rdt);
+  cam.x = damp(cam.x, gx, rate, rdt);
+  cam.y = damp(cam.y, gy, rate, rdt);
+}
+
+/* ───────────── 렌더링 ───────────── */
+let V = null;
+const sx = x => (x - V.x) * V.z + V.w / 2;
+const sy = y => V.h / 2 - (y - V.y) * V.z;
+
+function drawSky(full) {
+  const g = ctx.createLinearGradient(0, 0, 0, V.h);
+  g.addColorStop(0, '#1f3f7a');
+  g.addColorStop(0.55, '#e99a63');
+  g.addColorStop(1, '#ffd8a0');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, V.w, V.h);
+  if (!full) return;
+  // 태양
+  const sunX = V.w * 0.78 - V.x * 0.4, sunY = V.h * 0.62 + (sy(0) - V.h * 0.77) * 0.15;
+  const sg = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 160);
+  sg.addColorStop(0, 'rgba(255,245,210,.95)'); sg.addColorStop(0.18, 'rgba(255,220,150,.75)'); sg.addColorStop(1, 'rgba(255,200,120,0)');
+  ctx.fillStyle = sg; ctx.fillRect(sunX - 160, sunY - 160, 320, 320);
+}
+
+function drawMountains(factor, color, amp, seed, baseOff) {
+  const gy = sy(0);
+  const base = V.h * 0.72 + (gy - V.h * 0.77) * factor + baseOff;
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.moveTo(0, V.h);
+  for (let x = 0; x <= V.w + 8; x += 8) {
+    const u = x + V.x * factor * 14;
+    const h = amp * (0.55 + 0.25 * Math.sin(u * 0.0042 + seed) + 0.14 * Math.sin(u * 0.011 + seed * 2.3) + 0.06 * Math.sin(u * 0.031 + seed));
+    ctx.lineTo(x, base - h);
+  }
+  ctx.lineTo(V.w, V.h); ctx.closePath(); ctx.fill();
+}
+
+function drawCloud(c) {
+  const x = sx(c.x), y = sy(c.y), r = c.s * V.z;
+  if (x < -r * 3 || x > V.w + r * 3 || y < -r * 2 || y > V.h + r) return;
+  ctx.fillStyle = 'rgba(255,236,220,.78)';
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const ox = (i - 2) * r * 0.55, oy = Math.sin(c.seed + i * 1.7) * r * 0.18;
+    ctx.moveTo(x + ox + r * 0.6, y + oy);
+    ctx.arc(x + ox, y + oy, r * (0.45 + 0.18 * Math.cos(c.seed + i)), 0, Math.PI * 2);
+  }
+  ctx.fill();
+}
+
+function drawTree(t) {
+  const x = sx(t.x), gy = sy(0), z = V.z;
+  if (x < -t.w * z * 2 || x > V.w + t.w * z * 2) return;
+  ctx.fillStyle = '#4a3423';
+  ctx.fillRect(x - 0.12 * z, gy - t.h * 0.45 * z, 0.24 * z, t.h * 0.45 * z);
+  const c = t.shade < 0.5 ? '#2f5a35' : '#3b6b3b';
+  ctx.fillStyle = c;
+  for (let i = 0; i < 3; i++) {
+    const cy = gy - (t.h * 0.45 + i * t.h * 0.18) * z;
+    const w = t.w * (1 - i * 0.25) * z;
+    ctx.beginPath(); ctx.moveTo(x - w, cy); ctx.lineTo(x, cy - t.h * 0.38 * z); ctx.lineTo(x + w, cy); ctx.closePath(); ctx.fill();
+  }
+}
+
+function drawGround() {
+  const gy = sy(0);
+  if (gy > V.h) return;
+  const g = ctx.createLinearGradient(0, gy, 0, gy + Math.max(40, 6 * V.z));
+  g.addColorStop(0, '#6f9b3f'); g.addColorStop(1, '#3d5d27');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, gy, V.w, V.h - gy);
+  // 풀잎
+  const left = V.x - V.w / 2 / V.z, right = V.x + V.w / 2 / V.z;
+  const step = Math.max(0.2, 7 / V.z);
+  const sway = clamp(S.wind / 12, -1, 1);
+  const tnow = performance.now() / 1000;
+  ctx.strokeStyle = '#86b24c'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let x = Math.floor(left / step) * step; x < right; x += step) {
+    const h = (0.12 + 0.12 * Math.abs(Math.sin(x * 12.9898))) * V.z;
+    const bx = sx(x);
+    const lean = (sway * 0.6 + Math.sin(tnow * 2 + x) * 0.15) * h;
+    ctx.moveTo(bx, gy); ctx.lineTo(bx + lean, gy - h);
+  }
+  ctx.stroke();
+}
+
+function drawMarkers() {
+  const T = S.target; const gy = sy(0); const z = V.z;
+  ctx.font = `600 ${clamp(0.42 * z, 9, 16)}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  for (let d = 25; d < T.x - 4; d += 25) {
+    const x = sx(d);
+    if (x < -50 || x > V.w + 50) continue;
+    drawFlag(d, 3.2, 1.1, '#ff6a2b', '#fff', d * 0.37);
+    ctx.fillStyle = '#eee';
+    ctx.fillRect(x - 0.05 * z, gy - 0.8 * z, 0.1 * z, 0.8 * z);
+    ctx.fillStyle = 'rgba(20,20,20,.7)';
+    ctx.fillRect(x - 0.55 * z, gy - 1.25 * z, 1.1 * z, 0.5 * z);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`${d}m`, x, gy - 0.86 * z);
+  }
+}
+
+// 바람 깃발: 바람 방향으로 날리고, 셀수록 수평에 가깝게 펴집니다(10m/s면 완전히 수평).
+function windPose(phase = 0) {
+  const lift = clamp(Math.abs(S.wind) / 10, 0, 1);
+  const dir = S.wind >= 0 ? 1 : -1;
+  const ang = dir > 0 ? lerp(Math.PI / 2 - 0.05, 0, lift) : lerp(Math.PI / 2 + 0.05, Math.PI, lift);
+  return ang + Math.sin(performance.now() / (90 + 60 * (1 - lift)) + phase) * (0.04 + 0.08 * lift);
+}
+function drawFlag(wx, poleTop, len, colorA, colorB, phase) {
+  const z = V.z, x = sx(wx), gy = sy(0), top = sy(poleTop);
+  if (x < -len * z * 2 || x > V.w + len * z * 2) return;
+  ctx.fillStyle = '#d9d9d9'; ctx.fillRect(x - Math.max(1, 0.04 * z), top, Math.max(2, 0.08 * z), gy - top);
+  ctx.save(); ctx.translate(x, top); ctx.rotate(windPose(phase));
+  const L = len * z, h = Math.max(4, 0.32 * z);
+  ctx.fillStyle = colorA;
+  ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(L, 0); ctx.lineTo(0, h / 2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = colorB;
+  ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(L * 0.45, -h * 0.27); ctx.lineTo(L * 0.45, h * 0.27); ctx.lineTo(0, h / 2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// 바람에 날리는 먼지: 화면 안에서 바람 속도로 흘러갑니다.
+S.motes = [];
+function updateMotes(dt) {
+  const w = S.wind;
+  if (Math.abs(w) < 0.3 || !S.target) { S.motes.length = 0; return; }
+  const halfW = W / 2 / cam.z, halfH = H / 2 / cam.z;
+  const left = cam.x - halfW, right = cam.x + halfW, bottom = Math.max(0.2, cam.y - halfH), top = cam.y + halfH;
+  const want = Math.round(clamp(Math.abs(w) * 6, 12, 60));
+  while (S.motes.length < want) S.motes.push({ x: rand(left, right), y: rand(bottom, top), k: rand(0.7, 1.3) });
+  S.motes.length = want;
+  for (const m of S.motes) {
+    m.x += w * 1.1 * m.k * dt;
+    m.y += Math.sin(m.x * 0.7 + m.k * 9) * 0.4 * dt;
+    const out = w > 0 ? m.x > right + 1 : m.x < left - 1;
+    if (out || m.x < left - 3 || m.x > right + 3 || m.y < bottom - 1 || m.y > top + 1) {
+      m.x = w > 0 ? left - rand(0, 1) : right + rand(0, 1);
+      m.y = rand(bottom, top);
+    }
+  }
+}
+function drawMotes() {
+  if (!S.motes.length) return;
+  const len = Math.max(4, Math.abs(S.wind) * 0.12 * V.z) * Math.sign(S.wind);
+  ctx.strokeStyle = 'rgba(255,248,230,.45)'; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (const m of S.motes) { const x = sx(m.x), y = sy(m.y); ctx.moveTo(x, y); ctx.lineTo(x - len * m.k, y); }
+  ctx.stroke();
+}
+
+function drawWindsock() {
+  const z = V.z, bx = sx(-3.5), gy = sy(0), top = sy(3.6);
+  ctx.fillStyle = '#ccc'; ctx.fillRect(bx - 0.04 * z, top, 0.08 * z, gy - top);
+  const lift = clamp(Math.abs(S.wind) / 10, 0, 1);
+  const dir = S.wind >= 0 ? 1 : -1;
+  const ang = dir > 0 ? lerp(Math.PI / 2 - 0.05, 0, lift) : lerp(Math.PI / 2 + 0.05, Math.PI, lift);
+  const flutter = Math.sin(performance.now() / 120) * 0.06 * lift;
+  ctx.save(); ctx.translate(bx, top); ctx.rotate(ang + flutter);
+  const L = 1.3 * z;
+  for (let i = 0; i < 5; i++) {
+    const x0 = (i / 5) * L, x1 = ((i + 1) / 5) * L;
+    const h0 = lerp(0.22, 0.12, i / 5) * z, h1 = lerp(0.22, 0.12, (i + 1) / 5) * z;
+    ctx.fillStyle = i % 2 ? '#fff' : '#ff6a2b';
+    ctx.beginPath(); ctx.moveTo(x0, -h0); ctx.lineTo(x1, -h1); ctx.lineTo(x1, h1); ctx.lineTo(x0, h0); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawTarget() {
+  const T = S.target, z = V.z;
+  const x = sx(T.x), y = sy(T.y), r = T.R * z, gy = sy(0);
+  if (x < -r * 4 || x > V.w + r * 4) return;
+  const pw = Math.max(2, 0.14 * z);
+  if (T.amp > 0) {
+    const top = sy(T.baseY + T.amp + T.R + 0.5);
+    ctx.fillStyle = '#5a6470'; ctx.fillRect(x - pw * 1.6, top, pw * 3.2, gy - top);
+    ctx.fillStyle = '#7d8995'; ctx.fillRect(x - pw * 0.4, top, pw * 0.8, gy - top);
+  } else {
+    ctx.fillStyle = '#6b4a2b';
+    ctx.fillRect(x - pw / 2, y, pw, gy - y);
+    ctx.beginPath(); ctx.moveTo(x - 0.7 * z, gy); ctx.lineTo(x, gy - 0.9 * z); ctx.lineTo(x + 0.7 * z, gy);
+    ctx.lineWidth = pw * 0.7; ctx.strokeStyle = '#6b4a2b'; ctx.stroke();
+  }
+  // 그림자 테두리
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.arc(x + r * 0.08, y + r * 0.08, r * 1.04, 0, Math.PI * 2); ctx.fill();
+  const cols = ['#f4f1ea', '#f4f1ea', '#262626', '#262626', '#1d6fd1', '#1d6fd1', '#e63946', '#e63946', '#ffd23f', '#ffd23f'];
+  for (let i = 10; i >= 1; i--) {
+    ctx.fillStyle = cols[10 - i];
+    ctx.beginPath(); ctx.arc(x, y, r * i / 10, 0, Math.PI * 2); ctx.fill();
+    if (r > 14) { ctx.strokeStyle = i <= 4 && i >= 3 ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.25)'; ctx.lineWidth = 1; ctx.stroke(); }
+  }
+  ctx.strokeStyle = '#3b2a1a'; ctx.lineWidth = Math.max(1.5, 0.06 * z);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  if (r > 10) { ctx.fillStyle = '#7a5a14'; ctx.beginPath(); ctx.arc(x, y, Math.max(1, r * 0.02), 0, Math.PI * 2); ctx.fill(); }
+  // 표적 옆 바람 깃발
+  drawFlag(T.x + T.R + 0.9, Math.max(3, T.baseY + T.amp + T.R + 0.6), 1.0, '#ffd23f', '#e63946', 1.7);
+  // 탄흔
+  for (const d of S.marks) {
+    const my = sy(T.y + d), mr = Math.max(1.6, 0.05 * z);
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(x, my, mr * 1.7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x, my, mr, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawGhosts() {
+  ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5;
+  S.ghosts.forEach((g, i) => {
+    const a = 0.18 + 0.32 * ((i + 1) / S.ghosts.length);
+    ctx.strokeStyle = `rgba(255,255,255,${a})`;
+    ctx.beginPath();
+    g.forEach((p, j) => j ? ctx.lineTo(sx(p.x), sy(p.y)) : ctx.moveTo(sx(p.x), sy(p.y)));
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+}
+
+function drawPreview() {
+  const tip = muzzleTip(S.angle);
+  const b = { x: tip.x, y: tip.y, vx: V0 * Math.cos(tip.a), vy: V0 * Math.sin(tip.a) };
+  let dist = 0, nextDot = 0.6;
+  const startX = b.x, startY = b.y;
+  for (let i = 0; i < 4000; i++) {
+    integrate(b, PHYS_DT);
+    dist = Math.hypot(b.x - startX, b.y - startY);
+    if (dist > S.previewLen || b.y < 0) break;
+    if (dist >= nextDot) {
+      const a = 1 - dist / S.previewLen;
+      ctx.fillStyle = `rgba(255,240,180,${0.9 * a})`;
+      ctx.beginPath(); ctx.arc(sx(b.x), sy(b.y), Math.max(1.5, 0.07 * V.z) * (0.5 + a * 0.5), 0, Math.PI * 2); ctx.fill();
+      nextDot += 0.9;
+    }
+  }
+}
+
+function drawTrail() {
+  const tr = S.trail; if (tr.length < 2) return;
+  for (let i = 1; i < tr.length; i++) {
+    const a = i / tr.length;
+    ctx.strokeStyle = `rgba(255,${Math.round(200 + 55 * a)},${Math.round(150 + 80 * a)},${a * 0.85})`;
+    ctx.lineWidth = Math.max(1, a * 0.16 * V.z);
+    ctx.beginPath(); ctx.moveTo(sx(tr[i - 1].x), sy(tr[i - 1].y)); ctx.lineTo(sx(tr[i].x), sy(tr[i].y)); ctx.stroke();
+  }
+}
+
+function drawRings() {
+  for (const r of S.rings) {
+    const t = r.age / 0.7;
+    const rad = (0.25 + t * 1.6) * V.z;
+    ctx.save(); ctx.translate(sx(r.x), sy(r.y)); ctx.rotate(-r.ang);
+    ctx.strokeStyle = `rgba(255,255,255,${0.55 * (1 - t)})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(-t * 0.6 * V.z, 0, rad * 0.32, rad, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawBullet() {
+  const b = S.bullet; if (!b) return;
+  const x = sx(b.x), y = sy(b.y);
+  if (x < -40 || x > V.w + 40 || y < -40 || y > V.h + 40) return;
+  if (b.stuck) {
+    // 표적에 박힌 탄의 뒷부분
+    ctx.fillStyle = '#b8862e';
+    ctx.beginPath(); ctx.arc(x, y, Math.max(2, 0.06 * V.z), 0, Math.PI * 2); ctx.fill();
+    return;
+  }
+  const ang = Math.atan2(b.vy, b.vx);
+  const len = Math.max(10, 0.32 * V.z), th = Math.max(3, 0.1 * V.z);
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, len * 1.6);
+  glow.addColorStop(0, 'rgba(255,230,160,.6)'); glow.addColorStop(1, 'rgba(255,200,120,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, len * 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.translate(x, y); ctx.rotate(-ang);
+  const g = ctx.createLinearGradient(0, -th / 2, 0, th / 2);
+  g.addColorStop(0, '#ffe7a3'); g.addColorStop(0.5, '#d49a3a'); g.addColorStop(1, '#8a5a1c');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-len / 2, -th / 2); ctx.lineTo(len * 0.15, -th / 2);
+  ctx.quadraticCurveTo(len / 2, -th / 2, len / 2 + th * 0.3, 0);
+  ctx.quadraticCurveTo(len / 2, th / 2, len * 0.15, th / 2);
+  ctx.lineTo(-len / 2, th / 2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#7a4f17'; ctx.fillRect(-len / 2, -th / 2, len * 0.12, th);
+  ctx.restore();
+}
+
+function drawShooter() {
+  const z = V.z, a = S.angle * Math.PI / 180;
+  const px = sx(PIVOT.x), py = sy(PIVOT.y), gy = sy(0);
+  if (px < -3 * z || px > V.w + 3 * z) return;
+  // 사격대
+  ctx.fillStyle = '#5a3d22';
+  ctx.fillRect(sx(-0.85), gy - 1.05 * z, 0.14 * z, 1.05 * z);
+  ctx.fillRect(sx(0.75), gy - 1.05 * z, 0.14 * z, 1.05 * z);
+  ctx.fillStyle = '#7a5532';
+  ctx.fillRect(sx(-1.0), sy(1.05), 2.05 * z, 0.14 * z);
+  // 모래주머니
+  ctx.fillStyle = '#b89c68';
+  ctx.beginPath(); ctx.ellipse(sx(-0.55), sy(1.17), 0.33 * z, 0.12 * z, 0, 0, Math.PI * 2); ctx.fill();
+  // 양각대
+  const bp = { x: PIVOT.x + Math.cos(a) * 0.62, y: PIVOT.y + Math.sin(a) * 0.62 };
+  ctx.strokeStyle = '#2a2d33'; ctx.lineWidth = Math.max(1.5, 0.04 * z);
+  ctx.beginPath();
+  ctx.moveTo(sx(bp.x), sy(bp.y)); ctx.lineTo(sx(bp.x - 0.15), sy(1.19));
+  ctx.moveTo(sx(bp.x), sy(bp.y)); ctx.lineTo(sx(bp.x + 0.15), sy(1.19));
+  ctx.stroke();
+  // 소총
+  ctx.save(); ctx.translate(px, py); ctx.rotate(-a);
+  ctx.fillStyle = '#4b2f1b';
+  ctx.beginPath();
+  ctx.moveTo(-0.95 * z, -0.07 * z); ctx.lineTo(-0.95 * z, 0.17 * z); ctx.lineTo(-0.4 * z, 0.07 * z);
+  ctx.lineTo(0.35 * z, 0.06 * z); ctx.lineTo(0.35 * z, -0.04 * z); ctx.lineTo(-0.4 * z, -0.04 * z); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#2b2f36'; ctx.fillRect(-0.32 * z, -0.06 * z, 0.62 * z, 0.11 * z);
+  ctx.fillStyle = '#1c1f24'; ctx.fillRect(0.2 * z, -0.03 * z, (BARREL - 0.2) * z, 0.05 * z);
+  ctx.fillRect((BARREL - 0.1) * z, -0.045 * z, 0.12 * z, 0.08 * z);
+  ctx.fillStyle = '#23262c'; ctx.fillRect(-0.24 * z, -0.17 * z, 0.48 * z, 0.08 * z);
+  ctx.fillStyle = '#5fb4ff'; ctx.fillRect(0.22 * z, -0.165 * z, 0.03 * z, 0.07 * z);
+  ctx.fillStyle = '#2b2f36'; ctx.fillRect(-0.05 * z, -0.1 * z, 0.06 * z, 0.05 * z);
+  // 총구 화염
+  if (S.flash > 0) {
+    const fx = (BARREL + 0.05) * z, s = (0.4 + Math.random() * 0.3) * z;
+    ctx.fillStyle = 'rgba(255,240,180,.95)';
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const ang = (i / 10) * Math.PI * 2, rr = i % 2 ? s * 0.3 : s * (i === 0 ? 1.4 : 0.7);
+      ctx.lineTo(fx + Math.cos(ang) * rr, Math.sin(ang) * rr * 0.6);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(fx, 0, s * 0.22, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawParticles() {
+  for (const p of S.particles) {
+    const a = clamp(p.life / p.max, 0, 1);
+    ctx.fillStyle = `rgba(${p.color},${(p.smoke ? 0.35 : 0.95) * a})`;
+    const s = Math.max(1.2, p.size * V.z);
+    if (p.smoke) { ctx.beginPath(); ctx.arc(sx(p.x), sy(p.y), s, 0, Math.PI * 2); ctx.fill(); }
+    else ctx.fillRect(sx(p.x) - s / 2, sy(p.y) - s / 2, s, s);
+  }
+}
+
+function drawPopups() {
+  ctx.textAlign = 'center';
+  for (const p of S.popups) {
+    const t = p.age / p.life;
+    const a = t < 0.1 ? t / 0.1 : t > 0.75 ? (1 - t) / 0.25 : 1;
+    const size = Math.round(clamp(p.size * 26, 12, 44) * (t < 0.1 ? 0.6 + 4 * t : 1));
+    ctx.font = `800 ${size}px system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`;
+    const x = sx(p.x), y = sy(p.y) - t * 30;
+    ctx.globalAlpha = clamp(a, 0, 1);
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(p.text, x, y);
+    ctx.fillStyle = p.color; ctx.fillText(p.text, x, y);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawWorld(full) {
+  drawSky(full);
+  if (full) {
+    drawMountains(0.08, 'rgba(120,96,140,.75)', V.h * 0.22, 1.3, -V.h * 0.02);
+    drawMountains(0.16, 'rgba(84,72,104,.9)', V.h * 0.14, 4.1, V.h * 0.02);
+  }
+  for (const c of S.clouds) drawCloud(c);
+  for (const t of S.trees) drawTree(t);
+  drawGround();
+  if (S.target) {
+    drawMarkers();
+    drawWindsock();
+    drawGhosts();
+    drawTarget();
+    if (S.state === 'aim') drawPreview();
+    drawTrail();
+    drawRings();
+    drawBullet();
+    drawShooter();
+    drawParticles();
+    drawMotes();
+    drawPopups();
+  }
+}
+
+function drawPip() {
+  const T = S.target; if (!T) return;
+  const show = S.state === 'aim' || (S.state === 'flight' && S.bullet.x < T.x - 30) ||
+    (S.state === 'result' && !S.result.hit);
+  if (!show) return;
+  const w = Math.round(clamp(W * 0.32, 150, 300)), h = Math.round(w * 0.72);
+  const ox = W - w - 12, oy = 12;
+  const pz = h / (T.R * 2 + Math.max(4, T.amp * 2 + 2));
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(ox, oy, w, h, 10) : ctx.rect(ox, oy, w, h); ctx.clip();
+  ctx.translate(ox, oy);
+  const saved = V;
+  V = { x: T.x, y: T.amp > 0 ? T.baseY : T.y, z: pz, w, h };
+  drawSky(false);
+  drawGround();
+  drawGhosts();
+  drawTarget();
+  drawTrail();
+  drawBullet();
+  drawParticles();
+  // 조준경 십자선
+  ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+  const vg = ctx.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, w * 0.7);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+  // 예상 탄착 표시
+  const P = S.pred;
+  if (S.state === 'aim' && P) {
+    if (P.reach) {
+      const my = sy(P.y), cx = w / 2;
+      const inside = Math.abs(P.y - T.y) <= T.R;
+      const col = inside ? '#5dff9d' : '#4fe3ff';
+      if (my < 10 || my > h - 22) {
+        const up = my < 10, ay = up ? 10 : h - 26;
+        ctx.fillStyle = col; ctx.beginPath();
+        ctx.moveTo(cx, up ? ay - 6 : ay + 6); ctx.lineTo(cx - 7, up ? ay + 4 : ay - 4); ctx.lineTo(cx + 7, up ? ay + 4 : ay - 4); ctx.fill();
+        ctx.font = '700 11px system-ui, sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText(L().pipOff(Math.abs(P.y - T.y).toFixed(1), up), cx + 10, ay + 4);
+      } else {
+        ctx.strokeStyle = col; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cx, my, 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx - 16, my); ctx.lineTo(cx - 9, my); ctx.moveTo(cx + 9, my); ctx.lineTo(cx + 16, my); ctx.stroke();
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, my, 2, 0, Math.PI * 2); ctx.fill();
+      }
+    } else {
+      ctx.fillStyle = '#ff8a8a'; ctx.font = '700 12px system-ui, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(L().pipShort((T.x - P.x).toFixed(0)), w / 2, h - 26);
+    }
+  }
+  V = saved;
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(ox, oy, w, h, 10) : ctx.rect(ox, oy, w, h); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText(L().pipLabel(T.x.toFixed(0)), ox + 8, oy + h - 8);
+}
+
+function render() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.save();
+  if (S.shake > 0) {
+    const s = S.shake * S.shake * 18;
+    ctx.translate(rand(-s, s), rand(-s, s));
+  }
+  V = { x: cam.x, y: cam.y, z: cam.z, w: W, h: H };
+  drawWorld(true);
+  ctx.restore();
+
+  // 슬로모션 연출: 비네트 + 레터박스
+  const slow = clamp(1 - S.ts, 0, 1);
+  if (slow > 0.05 && (S.state === 'flight' || S.state === 'result')) {
+    const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, `rgba(10,5,0,${0.55 * slow})`);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+    const bar = H * 0.07 * slow;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, bar); ctx.fillRect(0, H - bar, W, bar);
+  }
+  if (S.flash > 0) { ctx.fillStyle = `rgba(255,240,200,${S.flash * 2})`; ctx.fillRect(0, 0, W, H); }
+  if (S.state !== 'title' && S.state !== 'gameover') drawPip();
+}
+
+/* ───────────── HUD ───────────── */
+const infoEl = document.getElementById('info');
+const angleEl = document.getElementById('angle');
+let lastInfo = '', lastAngle = '';
+function updateHud() {
+  const playing = S.state !== 'title' && S.state !== 'gameover' && S.target;
+  infoEl.style.display = angleEl.style.display = playing ? '' : 'none';
+  if (!playing) return;
+  const T = S.target;
+  const ammo = Array.from({ length: S.maxAmmo }, (_, i) => `<span class="${i < S.ammo ? '' : 'used'}"></span>`).join('');
+  const w = S.wind;
+  const aw = Math.abs(w), lv = aw < 3 ? 0 : aw < 6 ? 1 : aw < 9 ? 2 : 3;
+  const bars = Math.min(5, Math.ceil(aw / 2.2));
+  const windStr = aw < 0.05 ? L().windNone
+    : `${w > 0 ? '→' : '←'} ${aw.toFixed(1)} m/s</span></div><div class="row"><span></span><span class="bars">${'<b class="on"></b>'.repeat(bars)}${'<b></b>'.repeat(5 - bars)} ${L().windLv[lv]}`;
+  const eff = S.windEff;
+  const html =
+    `<div class="row"><span>STAGE</span><b>${S.stage}</b></div>` +
+    `<div class="row"><span>${L().hudScore}</span><b>${S.score.toLocaleString()}</b></div>` +
+    `<div class="row"><span>${L().hudAmmo}</span><span id="ammo">${ammo}</span></div>` +
+    `<div class="sep"></div>` +
+    `<div class="row"><span>${L().hudDist}</span><span>${T.x.toFixed(1)} m</span></div>` +
+    `<div class="row"><span>${L().hudHeight}</span><span>${T.amp > 0 ? `${T.baseY.toFixed(1)}±${T.amp.toFixed(1)}` : T.y.toFixed(1)} m</span></div>` +
+    `<div class="row"><span>${L().hudWind}</span><span>${windStr}</span></div>` +
+    (eff != null ? `<div class="row"><span>${L().windEffect}</span><span>${L().windEffVal(Math.abs(eff).toFixed(1), eff >= 0)}</span></div>` : '') +
+    (S.state === 'result' && !S.result.hit ? `<div class="sep"></div><div style="color:#ffb3b3">${S.result.msg}</div><div style="color:#ffd27a">${S.hint || ''}</div>` : '');
+  if (html !== lastInfo) { infoEl.innerHTML = html; lastInfo = html; }
+  let pl = '';
+  const P = S.pred;
+  if (S.state === 'aim' && P) {
+    if (P.reach) {
+      const d = P.y - T.y, on = Math.abs(d) <= T.R;
+      pl = `<em style="color:${on ? '#5dff9d' : '#9fe9ff'}">${L().pred(on, Math.abs(d).toFixed(1), d >= 0, P.t.toFixed(1))}</em>`;
+      if (T.amp > 0) pl += `<em>${L().predMoving}</em>`;
+    } else pl = `<em style="color:#ff9b9b">${L().predShort((T.x - P.x).toFixed(0))}</em>`;
+  }
+  if (S.hint && S.state === 'aim') pl += `<em style="color:#ffd27a">${S.hint}</em>`;
+  const ah = `${S.angle.toFixed(1)}°${pl}<small>${matchMedia('(pointer:coarse)').matches ? L().ctrlTouch : L().ctrlMouse}</small>`;
+  if (ah !== lastAngle) { angleEl.innerHTML = ah; lastAngle = ah; }
+}
+
+/* ───────────── 메인 루프 ───────────── */
+let last = performance.now();
+function frame(now) {
+  const rdt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  update(rdt);
+  render();
+  updateHud();
+  requestAnimationFrame(frame);
+}
+
+makeStage(1);
+cam.x = S.target.x * 0.5; cam.z = baseZ() * 0.9; cam.y = 0.3 * H / cam.z;
+function showTitle() {
+showCard(`
+  <button class="lang" id="lang" lang="${LANG === 'ko' ? 'en' : 'ko'}">${L().langToggle}</button>
+  <h1>BULLET</h1>
+  <p class="sub">${L().tagline}</p>
+  <ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
+  ${best ? `<p class="sub">${L().myBest(best.toLocaleString())}</p>` : ''}
+  <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button></div>
+  <p class="note" style="margin:14px 0 0"><a href="index.html" style="color:#9fe9ff">${L().fpsLink}</a></p>`);
+card.querySelector('#rank').addEventListener('click', showRanking);
+card.querySelector('#lang').addEventListener('click', () => {
+  LANG = LANG === 'ko' ? 'en' : 'ko';
+  store.set('bullet.lang', LANG);
+  document.documentElement.lang = LANG;
+  showTitle();
+});
+}
+showTitle();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
