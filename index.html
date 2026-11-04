@@ -65,17 +65,12 @@
   .card button:disabled { opacity: .5; cursor: default; filter: none; }
   .card h3 { margin: 18px 0 8px; font-size: 15px; letter-spacing: .04em; }
   .submit { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 14px 0 6px; text-align: left; }
-  .submit input, .submit select { pointer-events: auto; user-select: text; -webkit-user-select: text; min-width: 0;
+  .submit input { pointer-events: auto; user-select: text; -webkit-user-select: text; min-width: 0;
     background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.2); border-radius: 10px;
     padding: 10px 12px; font: inherit; font-size: 15px; }
-  .submit select { grid-column: 1 / -1; }
-  .submit select option { background: #141c30; }
   .submit button { padding: 10px 18px; font-size: 15px; }
   .status { min-height: 1.4em; font-size: 13px; margin: 4px 0 0; opacity: .9; }
   .status.err { color: #ff9b9b; } .status.ok { color: #7dffa8; }
-  .tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
-  .tabs button { background: rgba(255,255,255,.1); color: #fff; padding: 6px 12px; font-size: 13px; font-weight: 600; }
-  .tabs button.on { background: var(--accent); color: #1b1300; }
   .board { list-style: none; margin: 0 0 16px; padding: 0; text-align: left; font-size: 14px; font-variant-numeric: tabular-nums; }
   .board li { display: grid; grid-template-columns: 2.2em 2.6em 1fr auto; gap: 8px; align-items: center;
     padding: 7px 8px; border-radius: 8px; }
@@ -86,8 +81,6 @@
   .board .nm small { opacity: .6; margin-left: 6px; }
   .board .sc { font-weight: 800; color: var(--accent); }
   .board .empty { display: block; text-align: center; opacity: .7; padding: 14px; }
-  .board .nm .meta { display: block; margin: 0; font-size: 11px; opacity: .6; overflow: hidden; text-overflow: ellipsis; }
-  .tabs.kind button { font-size: 14px; padding: 7px 14px; }
   .note { font-size: 12px; opacity: .65; margin: 0 0 14px; }
   .lang { position: absolute; top: 12px; right: 12px; }
   .sharecard { margin: 12px auto 4px; padding: 10px 14px; max-width: 100%; box-sizing: border-box; border-radius: 10px;
@@ -180,21 +173,24 @@ const I18N = {
     introInfo: (d, w) => `거리 ${d}m · 바람 ${w}m/s`,
     goSub: '탄약을 모두 소진했습니다',
     goStats: (st, b, n) => `도달 스테이지 ${st} · 내 최고 기록 ${b}${n ? ' 🎉 신기록!' : ''}`,
-    nickPh: '닉네임 (최대 16자)', submit: '기록 등록', country: '국가',
-    statusOnline: '닉네임과 국가를 정하고 세계 랭킹에 기록을 올리세요', statusLocal: '이 기기의 랭킹에 기록됩니다',
+    nickPh: '닉네임 (최대 16자)', submit: '기록 등록',
+    statusOnline: '닉네임을 정하고 세계 랭킹에 올리세요. 한 사람당 한 줄, 최고 기록만 남아요', statusLocal: '이 기기의 랭킹에 기록됩니다',
     hWorld: '🌍 세계 랭킹', hLocal: '📱 이 기기 랭킹', retry: '다시 도전',
     zero: '0점 기록은 등록할 수 없어요', needNick: '닉네임을 입력하세요', sending: '등록 중…',
-    savedLocal: '이 기기 랭킹에 저장했어요',
-    posted: (r, t) => `등록 완료! 세계 ${r}위 (${t}명 중)`,
+    savedLocal: '이 기기 랭킹에 저장했어요', keptLocal: b => `기존 최고 기록(${b}점)이 더 높아서 그대로 두었어요`,
+    postedBest: (r, t) => `최고 기록 등록! 세계 ${r}위 (${t}명 중)`,
+    postedKept: (b, r) => `내 최고 기록(${b}점)보다 낮아 랭킹은 그대로예요 · 현재 세계 ${r}위`,
+    whereFrom: (f, c) => `접속 위치: ${f} ${c}`, myRecord: (n, s, r) => `등록된 내 기록 ${n} ${s}점 (${r}위)`,
+    errNameTaken: '이미 다른 사람이 쓰는 닉네임이에요', errIpLimit: '이 네트워크에서 새 플레이어 등록이 너무 많아요. 내일 다시 시도하세요',
     postFail: '등록하지 못했어요: ', loadFail: '랭킹을 불러오지 못했어요: ',
     errTimeout: '서버 응답이 없어요. 잠시 후 다시 시도하세요', errRate: '잠시 후 다시 시도하세요 (연속 등록 제한)',
     errImplausible: '비정상적인 점수로 판단되었어요', errName: '닉네임은 1~16자여야 해요',
     errNet: '서버에 연결할 수 없어요', errOutdated: '서버 설정이 최신이 아니에요 (setup.sql 다시 실행 필요)',
-    tabDay: '24시간', tabWeek: '7일', tabAll: '전체', loading: '불러오는 중…',
+    loading: '불러오는 중…',
     localNote: '세계 랭킹 서버가 아직 연결되지 않아 이 기기의 기록만 보여요',
     empty: '아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!',
-    rankTitle: '🌍 랭킹', rankSubOnline: '전 세계 사수들의 최고 기록', rankSubLocal: '이 기기에서 등록한 기록',
-    back: '뒤로', countryOther: '기타 / 비공개',
+    rankTitle: '🌍 랭킹', rankSubOnline: '전 세계 사수들의 최고 기록 · 1인 1기록', rankSubLocal: '이 기기에서 등록한 기록',
+    back: '뒤로', countryOther: '알 수 없음',
     hudScore: '점수', hudAmmo: '탄약', hudDist: '거리', hudHeight: '표적 높이', hudWind: '바람', windNone: '없음',
     pred: (inside, d, up, t) => `예상 탄착: ${inside ? '표적 안 · ' : ''}중심보다 ${d}m ${up ? '위' : '아래'} · ${t}초 후 도달`,
     predMoving: '표적이 움직여요. 도달 시간 동안의 이동을 고려하세요',
@@ -205,11 +201,6 @@ const I18N = {
     pipLabel: d => `표적 망원뷰 · ${d}m`,
     share: '📤 결과 공유', shareHead: (st, sc) => `BULLET 🎯 스테이지 ${st} · ${sc}점`, shareRank: r => `🌍 세계 ${r}위`,
     copied: '결과를 복사했어요! 친구에게 붙여 넣어 보세요', copyManual: '아래 글을 길게 눌러 복사하세요',
-    kindPlayer: '👤 개인', kindCountry: '🚩 국가 대항전',
-    countryRule: '국가 점수 = 그 나라 상위 10명의 최고 기록 합계. 친구를 불러 국가 순위를 올리세요!',
-    countryMeta: (n, ace) => `${n}명 참가 · 에이스 ${ace}`,
-    nationRank: (f, c, r) => `${f} ${c}: 국가 대항전 ${r}위`,
-    shareNation: (f, r) => `${f} 국가 대항전 ${r}위`,
   },
   en: {
     tagline: 'One shot across the sky. Hit dead center.',
@@ -234,21 +225,24 @@ const I18N = {
     introInfo: (d, w) => `${d} m · wind ${w} m/s`,
     goSub: 'Out of ammo',
     goStats: (st, b, n) => `Reached stage ${st} · Best ${b}${n ? ' 🎉 New record!' : ''}`,
-    nickPh: 'Nickname (max 16)', submit: 'Post score', country: 'Country',
-    statusOnline: 'Pick a nickname and country to post your score', statusLocal: 'Scores are saved on this device',
+    nickPh: 'Nickname (max 16)', submit: 'Post score',
+    statusOnline: 'Pick a nickname to join the world ranking. One row per player; only your best counts', statusLocal: 'Scores are saved on this device',
     hWorld: '🌍 World ranking', hLocal: '📱 This device', retry: 'Play again',
     zero: 'A score of 0 can’t be posted', needNick: 'Enter a nickname', sending: 'Posting…',
-    savedLocal: 'Saved on this device',
-    posted: (r, t) => `Posted! World #${r} of ${t} players`,
+    savedLocal: 'Saved on this device', keptLocal: b => `Your best (${b}) is higher, so it stays`,
+    postedBest: (r, t) => `New best posted! World #${r} of ${t} players`,
+    postedKept: (b, r) => `Lower than your best (${b}), so the ranking is unchanged · World #${r}`,
+    whereFrom: (f, c) => `Playing from: ${f} ${c}`, myRecord: (n, s, r) => `Your entry: ${n} ${s} (#${r})`,
+    errNameTaken: 'That nickname is already taken', errIpLimit: 'Too many new players from this network. Try again tomorrow',
     postFail: 'Couldn’t post: ', loadFail: 'Couldn’t load the leaderboard: ',
     errTimeout: 'The server didn’t answer. Try again shortly', errRate: 'Too fast. Try again in a few seconds',
     errImplausible: 'That score looks invalid', errName: 'Nicknames must be 1–16 characters',
     errNet: 'Can’t reach the server', errOutdated: 'The server setup is out of date (re-run setup.sql)',
-    tabDay: '24h', tabWeek: '7 days', tabAll: 'All time', loading: 'Loading…',
+    loading: 'Loading…',
     localNote: 'No leaderboard server is connected, so only this device’s scores are shown',
     empty: 'No scores yet. Be the first!',
-    rankTitle: '🌍 Leaderboard', rankSubOnline: 'Best shooters around the world', rankSubLocal: 'Scores saved on this device',
-    back: 'Back', countryOther: 'Other / hidden',
+    rankTitle: '🌍 Leaderboard', rankSubOnline: 'Best shooters around the world · one entry each', rankSubLocal: 'Scores saved on this device',
+    back: 'Back', countryOther: 'Unknown',
     hudScore: 'Score', hudAmmo: 'Ammo', hudDist: 'Distance', hudHeight: 'Target height', hudWind: 'Wind', windNone: 'None',
     pred: (inside, d, up, t) => `Predicted: ${inside ? 'on target · ' : ''}${d} m ${up ? 'above' : 'below'} center · arrives in ${t}s`,
     predMoving: 'Moving target: lead it by the flight time',
@@ -259,11 +253,6 @@ const I18N = {
     pipLabel: d => `Scope · ${d} m`,
     share: '📤 Share result', shareHead: (st, sc) => `BULLET 🎯 Stage ${st} · ${sc} pts`, shareRank: r => `🌍 World #${r}`,
     copied: 'Copied! Paste it anywhere to challenge friends', copyManual: 'Select the text below to copy it',
-    kindPlayer: '👤 Players', kindCountry: '🚩 Nations',
-    countryRule: 'Nation score = sum of its top 10 players’ best scores. Bring friends to push your country up!',
-    countryMeta: (n, ace) => `${n} ${n === '1' ? 'player' : 'players'} · ace ${ace}`,
-    nationRank: (f, c, r) => `${f} ${c}: #${r} among nations`,
-    shareNation: (f, r) => `${f} Nations #${r}`,
   },
 };
 function detectLang() {
@@ -520,7 +509,7 @@ function setState(st) { S.state = st; S.stateT = 0; }
 
 function startGame() {
   audio();
-  S.stage = 1; S.score = 0; S.streak = 0; S.angle = 8; S.history = []; S.lastRank = null; S.lastNation = null; S.time = 0;
+  S.stage = 1; S.score = 0; S.streak = 0; S.angle = 8; S.history = []; S.lastRank = null; S.time = 0;
   S.particles = []; S.popups = [];
   makeStage(1);
   beginIntro(true);
@@ -567,9 +556,7 @@ function gameOver() {
   sfx.over();
   const isBest = S.score > best;
   if (isBest) { best = S.score; try { localStorage.setItem('bullet.best', String(best)); } catch (e) {} }
-  const run = { score: S.score, stage: S.stage };
-  const boardTab = 'all';
-  saveLocal(run);
+  const run = { score: S.score, stage: S.stage, posted: false };
   showCard(`
     <h1>GAME OVER</h1>
     <p class="sub" style="margin-bottom:6px">${L().goSub}</p>
@@ -581,60 +568,62 @@ function gameOver() {
     <form class="submit" id="sub">
       <input id="nick" maxlength="16" placeholder="${L().nickPh}" autocomplete="nickname" required>
       <button id="send" type="submit">${L().submit}</button>
-      <select id="country" aria-label="${L().country}"></select>
     </form>
+    <p class="status" id="where"></p>
     <p class="status" id="status">${LB.on ? L().statusOnline : L().statusLocal}</p>
     <h3>${LB.on ? L().hWorld : L().hLocal}</h3>
     ${boardHtml()}
     <div class="btns"><button id="go">${L().retry}</button></div>`);
-  fillCountries(card.querySelector('#country'));
   const sharecard = card.querySelector('#sharecard'), sharestatus = card.querySelector('#sharestatus');
   sharecard.textContent = shareText();
   card.querySelector('#share').addEventListener('click', () => shareResult(sharestatus, sharecard));
   card.querySelector('#go2').addEventListener('click', () => startGame());
-  const nick = card.querySelector('#nick');
+  const nick = card.querySelector('#nick'), where = card.querySelector('#where');
   nick.value = store.get('bullet.name') || '';
   const form = card.querySelector('#sub'), status = card.querySelector('#status'), send = card.querySelector('#send');
   if (S.score <= 0) { send.disabled = true; status.textContent = L().zero; }
+
+  // 접속 위치(서버가 IP로 판단)와 이미 등록된 내 기록을 보여줍니다.
+  const showMe = m => {
+    if (!m) return;
+    let t = L().whereFrom(flag(m.country), countryName(m.country));
+    if (m.name) t += ' · ' + L().myRecord(m.name, Number(m.score).toLocaleString(), Number(m.rank).toLocaleString());
+    where.textContent = t;
+    if (m.name) { nick.value = m.name; store.set('bullet.name', m.name); }
+  };
+  if (LB.on) LB.me(playerToken()).then(showMe).catch(() => {});
+
   form.addEventListener('submit', async e => {
     e.preventDefault();
+    if (run.posted) return;
     const name = nick.value.replace(/\s+/g, ' ').trim();
-    const country = card.querySelector('#country').value;
     if (!name) { status.className = 'status err'; status.textContent = L().needNick; return; }
-    store.set('bullet.name', name); store.set('bullet.country', country);
+    store.set('bullet.name', name);
     send.disabled = true; status.className = 'status'; status.textContent = L().sending;
     if (!LB.on) {
-      run.name = name; run.country = country; saveLocal(run, true);
-      status.className = 'status ok'; status.textContent = L().savedLocal;
-      loadBoard(boardTab, { name, country });
+      const r = saveLocal(name, run.score, run.stage);
+      run.posted = true;
+      status.className = 'status ok';
+      status.textContent = r.improved ? L().savedLocal : L().keptLocal(r.best.toLocaleString());
+      loadBoard(name);
       return;
     }
     try {
-      const r = await LB.submit(name, country, run.score, run.stage);
+      const r = await LB.submit(playerToken(), name, run.score, run.stage);
+      run.posted = true;
+      const rank = Number(r.out_rank).toLocaleString(), total = Number(r.out_total).toLocaleString();
       status.className = 'status ok';
-      status.textContent = L().posted(Number(r.out_rank).toLocaleString(), Number(r.out_total).toLocaleString());
-      S.lastRank = Number(r.out_rank).toLocaleString();
-      sharecard.textContent = shareText();
-      if (country !== 'UN') {
-        try {
-          const nations = await LB.countries(boardFilter(boardTab));
-          const idx = nations.findIndex(n => n.country === country);
-          if (idx >= 0) {
-            S.lastNation = { country, rank: idx + 1 };
-            status.textContent += ' · ' + L().nationRank(flag(country), countryName(country), idx + 1);
-            sharecard.textContent = shareText();
-          }
-        } catch (e) { /* 국가 순위는 부가 정보라 실패해도 넘어갑니다 */ }
-      }
-      loadBoard(boardTab, { name, country });
+      status.textContent = r.out_improved ? L().postedBest(rank, total) : L().postedKept(Number(r.out_best).toLocaleString(), rank);
+      if (r.out_improved) { S.lastRank = rank; sharecard.textContent = shareText(); } // 이번 판이 최고 기록일 때만 순위를 공유
+      showMe({ country: r.out_country, name: r.out_name, score: r.out_best, rank: r.out_rank });
+      loadBoard(r.out_name);
     } catch (err) {
       send.disabled = false;
       status.className = 'status err';
       status.textContent = L().postFail + friendlyError(err);
     }
   });
-  wireBoard();
-  loadBoard(boardTab, null);
+  loadBoard(null);
 }
 
 /* ───────────── 결과 공유 ───────────── */
@@ -644,13 +633,12 @@ function shareText() {
   const rows = [];
   for (let i = 0; i < cells.length; i += 10) rows.push(cells.slice(i, i + 10).join(''));
   const lines = [L().shareHead(S.stage, S.score.toLocaleString()), ...rows];
-  if (S.lastRank) lines.push(L().shareRank(S.lastRank) + (S.lastNation ? ' · ' + L().shareNation(flag(S.lastNation.country), S.lastNation.rank) : ''));
+  if (S.lastRank) lines.push(L().shareRank(S.lastRank));
   lines.push(shareLink());
   return lines.join('\n');
 }
 function shareLink() {
-  const base = (window.BULLET_CONFIG && window.BULLET_CONFIG.shareUrl) || 'https://hsbaldwin.github.io/bullet/';
-  return base;
+  return (window.BULLET_CONFIG && window.BULLET_CONFIG.shareUrl) || 'https://hsbaldwin.github.io/bullet/';
 }
 async function shareResult(statusEl, previewEl) {
   const text = shareText();
@@ -670,10 +658,24 @@ async function shareResult(statusEl, previewEl) {
 }
 
 /* ───────────── 랭킹 ───────────── */
+// 랭킹은 플레이어당 한 줄입니다. 브라우저마다 비밀 토큰을 하나 만들어 "내 기록"의 주인을 확인하고,
+// 서버는 토큰의 해시만 저장합니다. 국가는 서버가 접속 IP로 정합니다.
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
 };
+let TOKEN = null;
+function playerToken() {
+  if (TOKEN) return TOKEN;
+  let t = store.get('bullet.token');
+  if (!t || !/^[0-9a-f]{64}$/.test(t)) {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    t = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    store.set('bullet.token', t);
+  }
+  return (TOKEN = t);
+}
 const LB = (() => {
   const cfg = window.BULLET_CONFIG || {};
   const url = String(cfg.supabaseUrl || '').replace(/\/+$/, '');
@@ -682,36 +684,29 @@ const LB = (() => {
   // 기존 anon key(JWT)는 Authorization에도 넣고, 새 publishable key(sb_publishable_…)는 apikey 헤더만 씁니다.
   const headers = () => Object.assign({ apikey: key, 'Content-Type': 'application/json' },
     key.startsWith('eyJ') ? { Authorization: 'Bearer ' + key } : {});
-  async function req(path, opts = {}) {
+  async function rpc(fn, args) {
     const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 9000);
     try {
-      const r = await fetch(url + path, Object.assign({ headers: headers(), signal: ctl.signal }, opts));
+      const r = await fetch(`${url}/rest/v1/rpc/${fn}`, { method: 'POST', headers: headers(), body: JSON.stringify(args), signal: ctl.signal });
       const body = await r.json().catch(() => null);
       if (!r.ok) throw new Error((body && (body.message || body.hint)) || ('HTTP ' + r.status));
       return body;
     } finally { clearTimeout(tm); }
   }
+  const one = rows => Array.isArray(rows) ? rows[0] : rows;
   return {
     on,
-    async top(f) {
-      return req('/rest/v1/rpc/top_scores', { method: 'POST',
-        body: JSON.stringify({ p_since: f.since, p_limit: 50 }) });
-    },
-    async countries(f) {
-      return req('/rest/v1/rpc/country_stats', { method: 'POST',
-        body: JSON.stringify({ p_since: f.since }) });
-    },
-    async submit(name, country, score, stage) {
-      const rows = await req('/rest/v1/rpc/submit_score', { method: 'POST',
-        body: JSON.stringify({ p_name: name, p_country: country, p_score: score, p_stage: stage }) });
-      return Array.isArray(rows) ? rows[0] : rows;
-    },
+    top: () => rpc('top_scores', { p_limit: 50 }),
+    me: async token => one(await rpc('my_entry', { p_token: token })),
+    submit: async (token, name, score, stage) => one(await rpc('submit_score', { p_token: token, p_name: name, p_score: score, p_stage: stage })),
   };
 })();
 
 function friendlyError(err) {
   const m = String(err && err.message || err);
   if (/abort/i.test(m)) return L().errTimeout;
+  if (/name taken/i.test(m)) return L().errNameTaken;
+  if (/too many players/i.test(m)) return L().errIpLimit;
   if (/too many/i.test(m)) return L().errRate;
   if (/implausible/i.test(m)) return L().errImplausible;
   if (/invalid name/i.test(m)) return L().errName;
@@ -720,133 +715,63 @@ function friendlyError(err) {
   return m;
 }
 
-function loadLocal() { try { return JSON.parse(store.get('bullet.local') || '[]'); } catch (e) { return []; } }
-function saveLocal(run, named) {
-  if (named) {
-    const list = loadLocal();
-    run.localId = run.localId || Date.now();
-    list.push({ id: run.localId, name: run.name, country: run.country, score: run.score, stage: run.stage,
-      created_at: new Date().toISOString() });
-    list.sort((a, b) => b.score - a.score);
-    store.set('bullet.local', JSON.stringify(list.slice(0, 200)));
+// 서버가 없을 때: 이 기기 안에서도 닉네임당 한 줄, 최고 기록만 남깁니다.
+function loadLocal() {
+  let list = [];
+  try { list = JSON.parse(store.get('bullet.local') || '[]'); } catch (e) {}
+  const by = new Map();
+  for (const r of list) {
+    if (!r || !r.name || (r.mode && r.mode !== 'normal')) continue;
+    const k = r.name.toLowerCase(), cur = by.get(k);
+    if (!cur || r.score > cur.score) by.set(k, { name: r.name, country: 'UN', score: r.score, stage: r.stage });
   }
+  return [...by.values()].sort((a, b) => b.score - a.score);
+}
+function saveLocal(name, score, stage) {
+  const list = loadLocal();
+  const cur = list.find(r => r.name.toLowerCase() === name.toLowerCase());
+  const improved = !cur || score > cur.score;
+  if (!cur) list.push({ name, country: 'UN', score, stage });
+  else if (improved) Object.assign(cur, { name, score, stage });
+  list.sort((a, b) => b.score - a.score);
+  store.set('bullet.local', JSON.stringify(list.slice(0, 100)));
+  return { improved, best: improved ? score : cur.score };
 }
 
-const COUNTRY_CODES = ('AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ ' +
-  'CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE ' +
-  'GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP ' +
-  'KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF ' +
-  'NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN ' +
-  'SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW').split(' ');
 const flag = c => /^[A-Z]{2}$/.test(c) && c !== 'UN' ? String.fromCodePoint(...[...c].map(ch => 127397 + ch.charCodeAt(0))) : '🌐';
 const regionCache = {};
 function regionNames() {
   if (!(LANG in regionCache)) { try { regionCache[LANG] = new Intl.DisplayNames([LANG], { type: 'region' }); } catch (e) { regionCache[LANG] = null; } }
   return regionCache[LANG];
 }
-const countryName = c => { if (c === 'UN') return L().countryOther; try { const rn = regionNames(); return (rn && rn.of(c)) || c; } catch (e) { return c; } };
-function guessCountry() {
-  const saved = store.get('bullet.country');
-  if (saved) return saved;
-  const langs = navigator.languages || [navigator.language || ''];
-  for (const l of langs) { const m = /[-_]([A-Z]{2})\b/i.exec(l); if (m && COUNTRY_CODES.includes(m[1].toUpperCase())) return m[1].toUpperCase(); }
-  const byLang = { ko: 'KR', ja: 'JP', zh: 'CN', en: 'US', de: 'DE', fr: 'FR', es: 'ES', it: 'IT', pt: 'BR', ru: 'RU', vi: 'VN', th: 'TH', id: 'ID' };
-  return byLang[(langs[0] || '').slice(0, 2)] || 'UN';
-}
-function fillCountries(sel) {
-  const list = COUNTRY_CODES.map(c => [c, countryName(c)]).sort((a, b) => a[1].localeCompare(b[1], LANG));
-  list.push(['UN', countryName('UN')]);
-  for (const [c, n] of list) { const o = document.createElement('option'); o.value = c; o.textContent = `${flag(c)} ${n}`; sel.appendChild(o); }
-  sel.value = guessCountry();
-}
+const countryName = c => { if (!c || c === 'UN') return L().countryOther; try { const rn = regionNames(); return (rn && rn.of(c)) || c; } catch (e) { return c; } };
 
 function boardHtml() {
-  return `<div class="tabs kind" id="kinds"><button data-k="player">${L().kindPlayer}</button><button data-k="country">${L().kindCountry}</button></div>
-    <div class="tabs" id="tabs">${LB.on ? `<button data-p="day">${L().tabDay}</button><button data-p="week">${L().tabWeek}</button>` : ''}<button data-p="all">${L().tabAll}</button></div>
-    <p class="note" id="countryRule" hidden>${L().countryRule}</p>
-    <ol class="board" id="board"><li><span class="empty">${L().loading}</span></li></ol>
+  return `<ol class="board" id="board"><li><span class="empty">${L().loading}</span></li></ol>
     ${LB.on ? '' : `<p class="note">${L().localNote}</p>`}`;
 }
-let boardPeriod = 'all', boardHighlight = null, boardKind = 'player';
-function boardFilter(period) {
-  const since = period === 'all' ? null : new Date(Date.now() - (period === 'day' ? 1 : 7) * 864e5).toISOString();
-  return { since };
-}
-// 서버가 없을 때: 이 기기 기록에서 플레이어별 최고 기록만 추립니다.
-function localTop(f) {
-  const bestBy = new Map();
-  for (const r of loadLocal()) {
-    if ((r.mode || 'normal') !== 'normal') continue; // 이전 버전의 데일리 기록은 제외
-    if (f.since && r.created_at < f.since) continue;
-    const k = r.name + '|' + r.country, cur = bestBy.get(k);
-    if (!cur || r.score > cur.score) bestBy.set(k, r);
-  }
-  return [...bestBy.values()].sort((a, b) => b.score - a.score).slice(0, 50);
-}
-function localCountries(f) {
-  const by = new Map();
-  for (const r of localTop(f)) {
-    if (r.country === 'UN') continue;
-    const c = by.get(r.country) || { country: r.country, players: 0, points: 0, top_name: r.name, top_score: r.score };
-    c.players++; if (c.players <= 10) c.points += r.score;
-    by.set(r.country, c);
-  }
-  return [...by.values()].sort((a, b) => b.points - a.points || b.players - a.players);
-}
-function wireBoard() {
-  boardKind = 'player';
-  const tabs = card.querySelector('#tabs'), kinds = card.querySelector('#kinds');
-  if (tabs) tabs.addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    loadBoard(b.dataset.p, boardHighlight);
-  });
-  if (kinds) kinds.addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    boardKind = b.dataset.k;
-    loadBoard(boardPeriod, boardHighlight);
-  });
-}
-async function loadBoard(period, highlight) {
-  boardPeriod = period; if (highlight !== undefined) boardHighlight = highlight;
+let boardSeq = 0;
+async function loadBoard(highlightName) {
   const board = card.querySelector('#board'); if (!board) return;
-  card.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.p === period));
-  card.querySelectorAll('#kinds button').forEach(b => b.classList.toggle('on', b.dataset.k === boardKind));
-  const rule = card.querySelector('#countryRule'); if (rule) rule.hidden = boardKind !== 'country';
-  const kind = boardKind, f = boardFilter(period);
+  const seq = ++boardSeq;
   let rows;
   if (LB.on) {
-    try { rows = kind === 'country' ? await LB.countries(f) : await LB.top(f); }
-    catch (err) { if (boardPeriod === period && boardKind === kind) renderBoard(board, null, L().loadFail + friendlyError(err)); return; }
-  } else rows = kind === 'country' ? localCountries(f) : localTop(f);
-  if (boardPeriod !== period || boardKind !== kind) return;
-  if (kind === 'country') renderCountries(board, rows); else renderBoard(board, rows);
+    try { rows = await LB.top(); }
+    catch (err) { if (seq === boardSeq) renderBoard(board, null, null, L().loadFail + friendlyError(err)); return; }
+  } else rows = loadLocal().slice(0, 50);
+  if (seq === boardSeq) renderBoard(board, rows, highlightName);
 }
-function renderCountries(board, rows) {
-  if (!rows || !rows.length) return renderBoard(board, null);
-  board.textContent = '';
-  rows.forEach((r, i) => {
-    const li = document.createElement('li');
-    if (boardHighlight && r.country === boardHighlight.country) li.className = 'me';
-    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = ['🥇', '🥈', '🥉'][i] || String(i + 1);
-    const fl = document.createElement('span'); fl.textContent = flag(r.country);
-    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = countryName(r.country);
-    const meta = document.createElement('small'); meta.className = 'meta';
-    meta.textContent = L().countryMeta(Number(r.players).toLocaleString(), r.top_name || '-'); nm.appendChild(meta);
-    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = Number(r.points).toLocaleString();
-    li.append(rk, fl, nm, sc); board.appendChild(li);
-  });
-  const me = board.querySelector('.me'); if (me) me.scrollIntoView({ block: 'nearest' });
-}
-function renderBoard(board, rows, errMsg) {
+function renderBoard(board, rows, highlightName, errMsg) {
   board.textContent = '';
   if (!rows || !rows.length) {
     const li = document.createElement('li'); const sp = document.createElement('span'); sp.className = 'empty';
     sp.textContent = errMsg || L().empty;
     li.appendChild(sp); board.appendChild(li); return;
   }
+  const hl = highlightName ? highlightName.toLowerCase() : null;
   rows.forEach((r, i) => {
     const li = document.createElement('li');
-    if (boardHighlight && r.name === boardHighlight.name && r.country === boardHighlight.country) li.className = 'me';
+    if (hl && r.name.toLowerCase() === hl) li.className = 'me';
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = ['🥇', '🥈', '🥉'][i] || String(i + 1);
     const fl = document.createElement('span'); fl.textContent = flag(r.country); fl.title = countryName(r.country);
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name;
@@ -862,8 +787,7 @@ function showRanking() {
     ${boardHtml()}
     <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="back">${L().back}</button></div>`);
   card.querySelector('#back').addEventListener('click', showTitle);
-  wireBoard();
-  loadBoard('all', null);
+  loadBoard(store.get('bullet.name'));
 }
 
 /* ───────────── 입력 ───────────── */
