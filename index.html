@@ -502,6 +502,7 @@ function fire() {
   S.tsBase = clamp(P.t / (near ? 0.8 : 0.3), 0.05, 1); // 실제 화면에서 보이는 비행 시간: 명중권 0.8초, 그 외 0.3초
   S.trail = []; S.rings = []; S.nextRing = 4; S.physAcc = 0;
   S.ammo--; S.shots++; S.flash = 0.08; S.shake = 0.5; S.feedback = '';
+  S.popup = null; bannerEl.style.opacity = 0; bannerT = 0; // 발사하면 화면 중앙을 비웁니다
   sfx.shot();
   setState('fired');
 }
@@ -574,6 +575,7 @@ function windLabel() {
   return L().windTxt(w > 0 ? 1 : -1, Math.abs(w).toFixed(1));
 }
 function startStage() {
+  S.popup = null;
   makeStage(S.stage);
   setAim(0, 0); S.bullet = null; S.trail = []; S.rings = [];
   setState('aim');
@@ -1220,6 +1222,7 @@ function update(rdt) {
   if (S.target) S.time += dt;
 
   if (S.state === 'fired' && S.stateT > 0.08) { setState('flight'); S.ts = S.tsBase; }
+  if (S.state === 'flight') speedPhase += rdt * (0.5 + 2.5 * S.ts);
   if (S.state === 'flight') {
     S.physAcc += dt;
     while (S.physAcc >= PHYS_DT && S.state === 'flight') { S.physAcc -= PHYS_DT; physStep(); }
@@ -1255,7 +1258,8 @@ function cameraFor() {
     const b = S.bullet, sp = Math.hypot(b.vx, b.vy, b.vz), d = { x: b.vx / sp, y: b.vy / sp, z: b.vz / sp };
     const yaw = Math.atan2(d.x, d.z), pitch = Math.asin(d.y);
     const right = { x: Math.cos(yaw), z: -Math.sin(yaw) };
-    setCam(b.x - d.x * 2.2 + right.x * 0.12, b.y - d.y * 2.2 + 0.1, b.z - d.z * 2.2 + right.z * 0.12, yaw, pitch);
+    // 중앙 몰입형: 탄 바로 뒤에서 탄의 진행 방향을 그대로 바라봐서, 탄이 항상 화면 정중앙에 옵니다.
+    setCam(b.x - d.x * 2.2, b.y - d.y * 2.2, b.z - d.z * 2.2, yaw, pitch);
     return;
   }
   if (S.state === 'result' && S.result.hit) {
@@ -1440,6 +1444,15 @@ function drawBullet() {
   const sp = Math.hypot(b.vx, b.vy, b.vz), head = proj(b.x, b.y, b.z), tail = proj(b.x - b.vx / sp * 0.08, b.y - b.vy / sp * 0.08, b.z - b.vz / sp * 0.08);
   if (!head) return;
   const rad = Math.max(2.5, 0.025 * head.s);
+  if (S.state === 'flight') {
+    // 중앙 몰입형: 탄을 바로 뒤에서 보므로 탄피 바닥(테두리 + 뇌관)을 그리고, 빛은 약하게 해서 표적을 가리지 않게 합니다.
+    const r = clamp(rad * 0.7, 3, 9);
+    ctx.globalAlpha = 0.45; ctx.drawImage(LY.glow, head.x - r * 4, head.y - r * 4, r * 8, r * 8); ctx.globalAlpha = 1;
+    ctx.fillStyle = '#c9973e'; ctx.beginPath(); ctx.arc(head.x, head.y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#7a4f17'; ctx.lineWidth = Math.max(1, r * 0.22); ctx.beginPath(); ctx.arc(head.x, head.y, r * 0.78, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#e8dcc0'; ctx.beginPath(); ctx.arc(head.x, head.y, r * 0.3, 0, Math.PI * 2); ctx.fill();
+    return;
+  }
   ctx.drawImage(LY.glow, head.x - rad * 5, head.y - rad * 5, rad * 10, rad * 10);
   ctx.fillStyle = '#d49a3a'; ctx.beginPath(); ctx.arc(head.x, head.y, rad, 0, Math.PI * 2); ctx.fill();
   if (tail) { ctx.strokeStyle = '#8a5a1c'; ctx.lineWidth = rad * 1.4; ctx.beginPath(); ctx.moveTo(tail.x, tail.y); ctx.lineTo(head.x, head.y); ctx.stroke(); }
@@ -1473,9 +1486,25 @@ function drawPopup() {
   ctx.lineWidth = 4; ctx.strokeText(p.sub, W / 2, H * 0.2 + 34); ctx.fillStyle = '#ffe8a8'; ctx.fillText(p.sub, W / 2, H * 0.2 + 34);
   ctx.globalAlpha = 1;
 }
+// 중앙에서 바깥으로 흐르는 속도선(화면 좌표, 매 프레임 56줄)
+const SPEED_LINES = Array.from({ length: 56 }, () => ({ a: Math.random() * Math.PI * 2, p: Math.random(), l: 0.06 + Math.random() * 0.14, w: 0.6 + Math.random() * 1.4 }));
+let speedPhase = 0;
+function drawSpeedLines(k) {
+  const cx = W / 2, cy = H / 2, rMax = Math.hypot(W, H) / 2, r0 = Math.min(W, H) * 0.16;
+  ctx.lineCap = 'round';
+  for (const s of SPEED_LINES) {
+    const t = (s.p + speedPhase) % 1, r = r0 + t * (rMax - r0), len = s.l * rMax * (0.35 + t), c = Math.cos(s.a), sn = Math.sin(s.a);
+    ctx.strokeStyle = `rgba(255,248,230,${(k * t * 0.45).toFixed(3)})`; ctx.lineWidth = s.w * (0.5 + t);
+    ctx.beginPath(); ctx.moveTo(cx + c * r, cy + sn * r); ctx.lineTo(cx + c * (r + len), cy + sn * (r + len)); ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+}
 function render() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   if (!S.target) { ctx.fillStyle = '#0b1622'; ctx.fillRect(0, 0, W, H); return; }
+  // 탄 추적 중에는 화면 중앙으로 살짝 빨려 들어가듯 확대합니다(최대 18%).
+  const F0 = F, flying = S.state === 'flight' && S.bullet;
+  if (flying && !REDUCED_MOTION) { const prog = clamp(S.bullet.z / S.target.z, 0, 1); F = F0 * (1 + 0.18 * (1 - (1 - prog) * (1 - prog))); }
   cameraFor();
   const hz = drawSky(); drawGround(hz);
   const items = [];
@@ -1485,12 +1514,14 @@ function render() {
   items.sort((a, b) => b.z - a.z);
   for (const it of items) it.f();
   drawParticles(); drawBullet();
+  F = F0;
   const fpv = S.state === 'aim' || S.state === 'fired' || (S.state === 'result' && !S.result.hit);
   if (fpv) drawIronSights();
   else {
-    const slow = clamp(1 - S.ts / Math.max(0.05, S.tsBase) * 0.6, 0, 1), bar = H * 0.07;
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, bar); ctx.fillRect(0, H - bar, W, bar);
-    if (slow > 0) { ctx.globalAlpha = 0.5 * slow; ctx.drawImage(LY.vignette, 0, 0, W, H); ctx.globalAlpha = 1; }
+    // 중앙 집중: 가장자리를 둥글게 어둡게 하고(슬로모션일수록 더), 비행 중에는 속도선을 그립니다.
+    const slow = clamp(1 - S.ts / Math.max(0.05, S.tsBase) * 0.6, 0, 1);
+    ctx.globalAlpha = Math.min(1, 0.55 + 0.35 * slow); ctx.drawImage(LY.vignette, 0, 0, W, H); ctx.globalAlpha = 1;
+    if (flying && !REDUCED_MOTION) drawSpeedLines(1 - slow * 0.6);
   }
   drawPopup();
 }
