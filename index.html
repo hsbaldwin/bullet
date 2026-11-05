@@ -144,9 +144,9 @@ window.BULLET_CONFIG = window.BULLET_CONFIG || {
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 let W = 0, H = 0, DPR = 1;
-let quality = (navigator.hardwareConcurrency || 8) <= 4 ? 0.75 : 1; // 느린 기기는 낮은 해상도로 시작
+let quality = 1; // 항상 최고 화질로 시작하고, 정말 느릴 때만 낮춤
 function resize() {
-  DPR = Math.max(0.5, Math.min(2, window.devicePixelRatio || 1) * quality);
+  DPR = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1) * quality);
   W = innerWidth; H = innerHeight;
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
@@ -1531,8 +1531,8 @@ function frame(now) {
   if (!idle && raw < 200) {
     emaDt += (raw - emaDt) * 0.05;
     if (now - lastQ > 1500) {
-      if (emaDt > 22 && quality > 0.5) { quality = Math.max(0.5, quality - 0.125); lastQ = now; emaDt = 16; resize(); }
-      else if (emaDt < 14.5 && quality < 1) { fastN++; if (fastN > 180) { quality = Math.min(1, quality + 0.125); fastN = 0; lastQ = now; resize(); } }
+      if (emaDt > 30 && quality > 0.75) { quality = Math.max(0.75, quality - 0.125); lastQ = now; emaDt = 16; resize(); }
+      else if (emaDt < 20 && quality < 1) { fastN++; if (fastN > 120) { quality = Math.min(1, quality + 0.125); fastN = 0; lastQ = now; resize(); } }
       else fastN = 0;
     }
   }
