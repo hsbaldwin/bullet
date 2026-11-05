@@ -105,6 +105,16 @@
     #mute { bottom: calc(12px + env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); }
     .card ul.desktop { display: none; }
   }
+  @media (pointer: coarse) and (max-height: 500px) {
+    #fire { width: 72px; height: 72px; font-size: 14px; right: max(14px, env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); }
+    #mute { right: calc(max(14px, env(safe-area-inset-right)) + 84px); bottom: calc(12px + env(safe-area-inset-bottom)); padding: 6px 10px; }
+    #angle, #angle em { max-width: calc(100vw - 260px); }
+    #angle { font-size: 16px; }
+    #info { font-size: 11px; line-height: 1.4; min-width: 130px; }
+    .card { padding: 16px 18px; }
+    .card h1 { font-size: 30px; }
+    .card ul { margin-bottom: 12px; line-height: 1.5; font-size: 13px; }
+  }
   @media not all and (pointer: coarse) { .card ul.touch { display: none; } }
   kbd { background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 5px; font-size: 12px; }
 </style>
@@ -144,6 +154,8 @@ window.BULLET_CONFIG = window.BULLET_CONFIG || {
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 let W = 0, H = 0, DPR = 1;
+// 망원뷰 가로 크기: 화면이 낮은 가로 모드에서는 높이에 맞춰 줄임
+const pipW = () => Math.round(Math.max(150, Math.min(300, W * 0.32, H * 0.42 / 0.72)));
 let quality = 1; // 항상 최고 화질로 시작하고, 정말 느릴 때만 낮춤
 function resize() {
   DPR = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1) * quality);
@@ -151,7 +163,7 @@ function resize() {
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
   // 일시정지 버튼은 망원뷰(오른쪽 위) 바로 아래에 둠
-  const pw = Math.round(Math.max(150, Math.min(300, W * 0.32)));
+  const pw = pipW();
   document.getElementById('pause').style.top = `calc(${Math.round(pw * 0.72) + 20}px + env(safe-area-inset-top))`;
 }
 addEventListener('resize', resize);
@@ -1391,7 +1403,7 @@ function drawPip() {
   const show = S.state === 'aim' || (S.state === 'flight' && S.bullet.x < T.x - 30) ||
     (S.state === 'result' && !S.result.hit);
   if (!show) return;
-  const w = Math.round(clamp(W * 0.32, 150, 300)), h = Math.round(w * 0.72);
+  const w = pipW(), h = Math.round(w * 0.72);
   const ox = W - w - 12, oy = 12;
   const pz = h / (T.R * 2 + Math.max(4, T.amp * 2 + 2));
   ctx.save();
