@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>BULLET Classic</title>
 <meta name="description" content="Side-view ballistic shooting: read gravity and wind, send one bullet across the sky into the bullseye. Free browser game, no install. · 중력과 바람을 읽고 한 발로 표적 중심을 꿰뚫는 2D 사격 게임.">
 <meta property="og:type" content="website">
@@ -21,7 +21,7 @@
     user-select: none; -webkit-user-select: none; touch-action: none; }
   canvas { display: block; cursor: crosshair; }
   #hud { position: fixed; inset: 0; pointer-events: none; }
-  .panel { position: absolute; background: var(--panel); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  .panel { position: absolute; background: var(--panel);
     border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.55; font-variant-numeric: tabular-nums; }
   #info { left: 12px; top: 12px; min-width: 150px; }
   #info b { color: var(--accent); }
@@ -86,6 +86,26 @@
   .sharestatus { min-height: 1.3em; font-size: 13px; color: #7dffa8; margin: 0 0 10px; }
   .card { position: relative; }
   .card button.lang { padding: 5px 10px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.12); color: #fff; }
+  #fire, #pause { position: absolute; pointer-events: auto; display: none; border: 0; color: #fff; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  #fire { right: max(14px, env(safe-area-inset-right)); bottom: calc(76px + env(safe-area-inset-bottom)); width: 92px; height: 92px;
+    border-radius: 50%; background: #e5432d; font-size: 17px; font-weight: 900; letter-spacing: .04em;
+    box-shadow: 0 6px 18px rgba(0,0,0,.45), inset 0 -4px 0 rgba(0,0,0,.25); }
+  #fire:active { transform: scale(.94); filter: brightness(.9); }
+  #pause { right: max(12px, env(safe-area-inset-right)); top: calc(12px + env(safe-area-inset-top)); background: var(--panel);
+    border-radius: 10px; padding: 8px 12px; font-size: 14px; }
+  @media (pointer: coarse) {
+    body.playing #pause { display: block; }
+    body.aiming #fire { display: block; }
+    #angle em { max-width: calc(100vw - 150px); }
+    #angle { max-width: calc(100vw - 150px); box-sizing: border-box; }
+    .panel { padding: 6px 10px; font-size: 12px; }
+    #info { top: calc(12px + env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); }
+    #angle { bottom: calc(12px + env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); }
+    #mute { bottom: calc(12px + env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); }
+    .card ul.desktop { display: none; }
+  }
+  @media not all and (pointer: coarse) { .card ul.touch { display: none; } }
   kbd { background: rgba(255,255,255,.14); border-radius: 4px; padding: 0 5px; font-size: 12px; }
 </style>
 </head>
@@ -97,6 +117,8 @@
   <div id="angle" class="panel"></div>
   <div id="banner"><h2></h2><p></p></div>
   <button id="mute" title="Sound (M)">🔊</button>
+  <button id="pause" aria-label="Pause">⏸</button>
+  <button id="fire">FIRE</button>
 </div>
 
 <div id="overlay">
@@ -122,11 +144,15 @@ window.BULLET_CONFIG = window.BULLET_CONFIG || {
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 let W = 0, H = 0, DPR = 1;
+let quality = (navigator.hardwareConcurrency || 8) <= 4 ? 0.75 : 1; // 느린 기기는 낮은 해상도로 시작
 function resize() {
-  DPR = Math.min(2, window.devicePixelRatio || 1);
+  DPR = Math.max(0.5, Math.min(2, window.devicePixelRatio || 1) * quality);
   W = innerWidth; H = innerHeight;
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  // 일시정지 버튼은 망원뷰(오른쪽 위) 바로 아래에 둠
+  const pw = Math.round(Math.max(150, Math.min(300, W * 0.32)));
+  document.getElementById('pause').style.top = `calc(${Math.round(pw * 0.72) + 20}px + env(safe-area-inset-top))`;
 }
 addEventListener('resize', resize);
 resize();
@@ -157,6 +183,12 @@ const I18N = {
       '오른쪽 위 망원뷰의 <b>예상 탄착 표시</b>로 조준하세요',
       '첫 발 명중 시 ×1.5 보너스, 연속 원샷은 추가 점수!',
     ],
+    rulesTouch: [
+      '<b>드래그</b>로 각도를 맞추고 <b>발사</b> 버튼을 누르세요',
+      '탄은 <b>중력</b>으로 떨어지고 <b>바람</b>에 밀립니다. 오른쪽 위 망원뷰의 <b>예상 탄착 표시</b>를 표적에 맞추세요',
+      '스테이지마다 탄 3발. 모두 놓치면 게임 오버',
+    ],
+    fireBtn: '발사', pausedTitle: '일시정지', resume: '계속하기',
     myBest: v => `내 최고 기록 ${v}`,
     start: '사격 시작', rankingBtn: '🌍 랭킹 보기', langToggle: 'English',
     bullseye: '불스아이!', great: '훌륭해요!', hit: '명중!', close: '아슬아슬!',
@@ -194,7 +226,7 @@ const I18N = {
     pred: (inside, d, up, t) => `예상 탄착: ${inside ? '표적 안 · ' : ''}중심보다 ${d}m ${up ? '위' : '아래'} · ${t}초 후 도달`,
     predMoving: '표적이 움직여요. 도달 시간 동안의 이동을 고려하세요',
     predShort: d => `예상 탄착: 표적 ${d}m 앞 지면. 각도를 올리세요`,
-    ctrlTouch: '드래그로 조준 · 손을 떼면 발사', ctrlMouse: '마우스 조준 · 클릭 발사 · ↑↓ 미세조정',
+    ctrlTouch: '드래그로 조준 · 발사 버튼', ctrlMouse: '마우스 조준 · 클릭 발사 · ↑↓ 미세조정',
     pipOff: (d, up) => `예상 탄착 ${d}m ${up ? '위' : '아래'}`,
     pipShort: d => `표적 ${d}m 앞 지면에 떨어짐 ▲`,
     pipLabel: d => `표적 망원뷰 · ${d}m`,
@@ -210,6 +242,12 @@ const I18N = {
       'Line up the <b>predicted impact marker</b> in the scope (top right)',
       'First-shot hits score ×1.5, and one-shot streaks earn bonus points',
     ],
+    rulesTouch: [
+      '<b>Drag</b> to set the angle, then tap <b>FIRE</b>',
+      'Bullets drop with <b>gravity</b> and drift with the <b>wind</b>. Line up the <b>predicted impact marker</b> in the scope (top right)',
+      '3 rounds per stage. Miss all three and it’s game over',
+    ],
+    fireBtn: 'FIRE', pausedTitle: 'Paused', resume: 'Resume',
     myBest: v => `Your best: ${v}`,
     start: 'Start', rankingBtn: '🌍 Leaderboard', langToggle: '한국어',
     bullseye: 'BULLSEYE!', great: 'Great shot!', hit: 'Hit!', close: 'Close call!',
@@ -247,7 +285,7 @@ const I18N = {
     pred: (inside, d, up, t) => `Predicted: ${inside ? 'on target · ' : ''}${d} m ${up ? 'above' : 'below'} center · arrives in ${t}s`,
     predMoving: 'Moving target: lead it by the flight time',
     predShort: d => `Predicted: lands ${d} m short. Raise your angle`,
-    ctrlTouch: 'Drag to aim · release to fire', ctrlMouse: 'Mouse to aim · click to fire · ↑↓ fine-tune',
+    ctrlTouch: 'Drag to aim · tap FIRE', ctrlMouse: 'Mouse to aim · click to fire · ↑↓ fine-tune',
     pipOff: (d, up) => `Predicted ${d} m ${up ? 'above' : 'below'}`,
     pipShort: d => `Lands ${d} m short ▲`,
     pipLabel: d => `Scope · ${d} m`,
@@ -795,7 +833,7 @@ function showRanking() {
 }
 
 /* ───────────── 입력 ───────────── */
-let pointerDown = false;
+let pointerDown = false, pointerKind = 'mouse';
 function aimAt(clientX, clientY) {
   const px = (PIVOT.x - cam.x) * cam.z + W / 2;
   const py = H / 2 - (PIVOT.y - cam.y) * cam.z;
@@ -805,23 +843,26 @@ function aimAt(clientX, clientY) {
 }
 cv.addEventListener('pointerdown', e => {
   audio();
+  if (paused) return;
   if (S.state === 'intro') { setState('aim'); S.armed = false; return; }
   if (S.state === 'result' && S.stateT > 0.5) { afterResult(); return; }
   if (S.state !== 'aim') return;
-  pointerDown = true; S.armed = true;
+  pointerDown = true; S.armed = true; pointerKind = e.pointerType;
   if (e.pointerType !== 'mouse') aimAt(e.clientX, e.clientY);
 });
 cv.addEventListener('pointermove', e => {
-  if (S.state !== 'aim') return;
+  if (S.state !== 'aim' || paused) return;
   if (e.pointerType === 'mouse' || pointerDown) aimAt(e.clientX, e.clientY);
 });
 addEventListener('pointerup', () => {
-  if (S.state === 'aim' && pointerDown && S.armed) fire();
+  if (S.state === 'aim' && pointerDown && S.armed && pointerKind === 'mouse' && !paused) fire();
   pointerDown = false;
 });
 addEventListener('keydown', e => {
   const k = e.key;
   if (e.target && e.target.closest && e.target.closest('input, select, textarea, button')) return;
+  if (paused) { if (k === 'Enter' || k === ' ' || k === 'Escape' || k === 'p' || k === 'P') { e.preventDefault(); setPaused(false); } return; }
+  if ((k === 'p' || k === 'P' || k === 'Escape') && playingNow()) { setPaused(true); return; }
   if (k === 'm' || k === 'M') { toggleMute(); return; }
   if (S.state === 'gameover' && S.stateT < 1.5) return; // 마지막 발사 직후 키 입력으로 결과 화면이 넘어가지 않게
   if (S.state === 'title' || S.state === 'gameover') { if (k === 'Enter' || k === ' ') { e.preventDefault(); startGame(); } return; }
@@ -833,6 +874,33 @@ addEventListener('keydown', e => {
   if (k === 'ArrowDown' || k === 's' || k === 'S') { S.angle = Math.round(clamp(S.angle - step, -10, 85) * 10) / 10; e.preventDefault(); }
   if (k === ' ' || k === 'Enter') { e.preventDefault(); fire(); }
 });
+const fireBtn = document.getElementById('fire'), pauseBtn = document.getElementById('pause');
+fireBtn.addEventListener('click', () => { if (S.state === 'aim' && !paused) { S.armed = true; fire(); } });
+pauseBtn.addEventListener('click', () => setPaused(true));
+fireBtn.textContent = L().fireBtn;
+
+/* 일시정지: 탭 전환·앱 전환·전화 등으로 화면을 벗어나면 자동으로 멈춥니다 */
+let paused = false;
+const playingNow = () => ['intro', 'aim', 'flight', 'result'].includes(S.state);
+function setPaused(on) {
+  if (on === paused) return;
+  if (on && !playingNow()) return;
+  paused = on;
+  if (on) {
+    if (actx && actx.state === 'running') actx.suspend();
+    pointerDown = false;
+    showCard(`<h1 style="font-size:30px">${L().pausedTitle}</h1><div class="btns"><button id="resume">${L().resume}</button></div>`);
+    card.querySelector('#resume').addEventListener('click', () => setPaused(false));
+  } else {
+    overlay.classList.add('hidden');
+    last = performance.now();
+    if (actx && actx.state === 'suspended' && !muted) actx.resume();
+  }
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); });
+addEventListener('blur', () => setPaused(true));
+addEventListener('pagehide', () => setPaused(true));
+
 const muteBtn = document.getElementById('mute');
 function toggleMute() { muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊'; }
 muteBtn.addEventListener('click', e => { e.stopPropagation(); toggleMute(); });
@@ -1356,7 +1424,7 @@ function drawPip() {
         ctx.fillStyle = col; ctx.beginPath();
         ctx.moveTo(cx, up ? ay - 6 : ay + 6); ctx.lineTo(cx - 7, up ? ay + 4 : ay - 4); ctx.lineTo(cx + 7, up ? ay + 4 : ay - 4); ctx.fill();
         ctx.font = '700 11px system-ui, sans-serif'; ctx.textAlign = 'left';
-        ctx.fillText(L().pipOff(Math.abs(P.y - T.y).toFixed(1), up), cx + 10, ay + 4);
+        ctx.fillText(L().pipOff(Math.abs(P.y - T.y).toFixed(1), up), cx + 10, ay + 4, w - cx - 14);
       } else {
         ctx.strokeStyle = col; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(cx, my, 7, 0, Math.PI * 2); ctx.stroke();
@@ -1406,6 +1474,8 @@ const angleEl = document.getElementById('angle');
 let lastInfo = '', lastAngle = '';
 function updateHud() {
   const playing = S.state !== 'title' && S.state !== 'gameover' && S.target;
+  document.body.classList.toggle('playing', !!playing && !paused);
+  document.body.classList.toggle('aiming', S.state === 'aim' && !paused);
   infoEl.style.display = angleEl.style.display = playing ? '' : 'none';
   if (!playing) return;
   const T = S.target;
@@ -1443,13 +1513,29 @@ function updateHud() {
 
 /* ───────────── 메인 루프 ───────────── */
 let last = performance.now();
+let lastDraw = 0, emaDt = 16, fastN = 0, lastQ = 0;
 function frame(now) {
-  const rdt = Math.min(0.05, (now - last) / 1000);
+  requestAnimationFrame(frame);
+  const raw = now - last;
+  if (paused) { last = now; return; } // 멈춘 동안은 그리지도 계산하지도 않음
+  const rdt = Math.min(0.05, raw / 1000);
   last = now;
   update(rdt);
+  // 제목·결과 화면처럼 조작이 없는 화면은 초당 10번만 그려 배터리를 아낌
+  const idle = S.state === 'title' || S.state === 'gameover';
+  if (idle && now - lastDraw < 100) return;
+  lastDraw = now;
   render();
   updateHud();
-  requestAnimationFrame(frame);
+  // 자동 해상도: 프레임 시간 평균이 길게 느리면 낮추고, 오래 여유로우면 다시 올림
+  if (!idle && raw < 200) {
+    emaDt += (raw - emaDt) * 0.05;
+    if (now - lastQ > 1500) {
+      if (emaDt > 22 && quality > 0.5) { quality = Math.max(0.5, quality - 0.125); lastQ = now; emaDt = 16; resize(); }
+      else if (emaDt < 14.5 && quality < 1) { fastN++; if (fastN > 180) { quality = Math.min(1, quality + 0.125); fastN = 0; lastQ = now; resize(); } }
+      else fastN = 0;
+    }
+  }
 }
 
 makeStage(1);
@@ -1459,7 +1545,8 @@ showCard(`
   <button class="lang" id="lang" lang="${LANG === 'ko' ? 'en' : 'ko'}">${L().langToggle}</button>
   <h1>BULLET</h1>
   <p class="sub">${L().tagline}</p>
-  <ul>${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
+  <ul class="desktop">${L().rules.map(r => `<li>${r}</li>`).join('')}</ul>
+  <ul class="touch">${L().rulesTouch.map(r => `<li>${r}</li>`).join('')}</ul>
   ${best ? `<p class="sub">${L().myBest(best.toLocaleString())}</p>` : ''}
   <div class="btns"><button id="go">${L().start}</button><button class="ghost" id="rank">${L().rankingBtn}</button></div>`);
 card.querySelector('#rank').addEventListener('click', showRanking);
@@ -1467,6 +1554,7 @@ card.querySelector('#lang').addEventListener('click', () => {
   LANG = LANG === 'ko' ? 'en' : 'ko';
   store.set('bullet.lang', LANG);
   document.documentElement.lang = LANG;
+  fireBtn.textContent = L().fireBtn;
   showTitle();
 });
 }
