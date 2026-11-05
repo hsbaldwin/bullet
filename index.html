@@ -225,7 +225,7 @@ const I18N = {
       (touchUI ? '<b>숨 참기</b> 버튼을 누르는 동안' : '<kbd>Shift</kbd>를 누르는 동안') + ' <b>숨을 참아</b> 흔들림이 줄고, 감도가 절반이 되어 미세 조준이 쉬워집니다',
       '스테이지마다 탄 3발. 명중하면 다음 스테이지',
     ],
-    start: '사격 시작', classic: '2D 클래식 버전', langToggle: 'English',
+    start: '사격 시작', langToggle: 'English',
     paused: '⏸ 일시정지', pausedSub: '탭을 바꾸거나 Esc를 누르면 자동으로 멈춰요. 표적·숨·바람도 함께 멈춰 있어요',
     resume: '▶ 계속하기', quit: '🏠 로비로 (이번 판 종료)',
     autoPosting: '기록 자동 등록 중…', queuedScore: '연결이 불안정해서 기록을 기기에 보관했어요. 연결되면 자동으로 등록돼요',
@@ -326,7 +326,7 @@ const I18N = {
       (touchUI ? 'Hold <b>BREATH</b>' : 'Hold <kbd>Shift</kbd>') + ' to <b>hold your breath</b>: less sway and half sensitivity for fine aiming',
       '3 rounds per stage. Hit to advance',
     ],
-    start: 'Start', classic: '2D classic version', langToggle: '한국어',
+    start: 'Start', langToggle: '한국어',
     paused: '⏸ Paused', pausedSub: 'The game pauses automatically when you switch tabs or press Esc. Target, breath and wind are frozen too',
     resume: '▶ Resume', quit: '🏠 Lobby (end this run)',
     autoPosting: 'Posting your score…', queuedScore: 'The connection is unstable, so your score is saved on this device and will post automatically',
@@ -1296,8 +1296,7 @@ function showTitle() {
           </div>
         </details>
       </section>
-    </div>
-    <p class="note"><a href="classic.html" style="color:#9fe9ff">${L().classic}</a></p>`);
+    </div>`);
   const sens = card.querySelector('#sens'), sensV = card.querySelector('#sensV');
   sens.addEventListener('input', () => { SENS = +sens.value; sensV.textContent = SENS.toFixed(1) + '×'; store.set('bullet.sens', String(SENS)); });
   card.querySelector('#smooth').addEventListener('change', e => { SMOOTH = e.target.checked; store.set('bullet.smooth', SMOOTH ? '1' : '0'); });
